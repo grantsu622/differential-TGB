@@ -1,5 +1,5 @@
 //20140807 	 		1.加入回授有問題時閃爍燈號:
-             		
+
 //												LED1(D24)		LED2(D28)	 LED3(D25)
 //					 		回授失效				0				1(快閃) 	0      (Unknow_Status、5秒Time out)
 //					 		把手失效				1(快閃)			0 			0				 V
@@ -191,7 +191,7 @@ __CONFIG(WRT_ALL & PLLEN_OFF & STVREN_ON & LVP_OFF & BORV_HI);
 //================================================================================================
 
 //__EEPROM_DATA(0xAB, 0x20, 0x15, 0x03, 0x24, 0x01, 0xFF, 0xFF);
-        
+
 #define	Comeback_2WD_EN			0
 #define	Self_Test_EN			0
 //#define	WBY_EN		 		0
@@ -208,7 +208,7 @@ __CONFIG(WRT_ALL & PLLEN_OFF & STVREN_ON & LVP_OFF & BORV_HI);
 #define HIGH					1
 #define LOW						0
 //#define _5S_Val				12			//1.5秒
-#define _5S_Val					8
+#define _5S_Val					8 //origin
 //#define _3S_Val				24			//3秒
 //#define PAC1710_Error_val		10
 #define	RPM_Speed				0x927C		//rpm 1600
@@ -375,7 +375,7 @@ unsigned char Moving_Status;
 
 ////////////////////////////////////AutoRun Test///////////////////////////////////////
 
-#define AUTORUN 1
+#define AUTORUN 0
 unsigned char SpeedCunt = 0;
 
 void Motor1_F(void);	//前差馬達正轉
@@ -412,8 +412,8 @@ void Output_ECU(void);
 
 extern union
 { 	
-	unsigned int Full_Val ;
-	unsigned char Temp[2] ;
+    unsigned int Full_Val ;
+    unsigned char Temp[2] ;
 }PAC1710;
 
 
@@ -421,120 +421,120 @@ extern union
 
 void interrupt ISRs(void)
 {
-	 if(INTF & INTE)
-	 {
-	 	INTF = 0;
-	 }
-	 
-	 if (TMR1GIF & TMR1GIE)
-	 {
-	 	TMR1GIF = 0;
-	 	PRM_NEW = TMR1L;
-	 	PRM_NEW = PRM_NEW + ((unsigned int)TMR1H << 8);
-	 	
-	 		
-	 	_1S_CNT = 8;
-	 	
-	 	RPM_VAL = PRM_NEW - RPM_OLD;
-	 	RPM_OLD = PRM_NEW;
-	 	
-	 	if (RPM_VAL > RPM_Speed) 				
-	 	{	if (RPM_Flag < 100)
-	 		RPM_Flag++;
-	 		Over_Speed_Error = 0;
-   
-	 	}  
-	 	else	              
-	 	{
-	 		RPM_Flag = 0;
-	 		Over_Speed_Error = 1;
-   
-	 	}
-	 	
-	 }
-	 	
-// ==================T2計算方式===========================================  
-//			1/(8M/4/16/64/250)= 128 msec
-//
-//			1/(8M/4/16/64/19.53)= 10 msec
-// =======================================================================
+    if(INTF & INTE)
+    {
+        INTF = 0;
+    }
 
-	if(TMR2IF & TMR2IE)				// 128mS
-	{	
-		TMR2IF = 0;
-		T1GGO = 1;
+    if (TMR1GIF & TMR1GIE)
+    {
+        TMR1GIF = 0;
+        PRM_NEW = TMR1L;
+        PRM_NEW = PRM_NEW + ((unsigned int)TMR1H << 8);
+
+
+        _1S_CNT = 8;
+
+        RPM_VAL = PRM_NEW - RPM_OLD;
+        RPM_OLD = PRM_NEW;
+
+        if (RPM_VAL > RPM_Speed) 				
+        {	if (RPM_Flag < 100)
+            RPM_Flag++;
+            Over_Speed_Error = 0;
+
+        }  
+        else	              
+        {
+            RPM_Flag = 0;
+            Over_Speed_Error = 1;
+
+        }
+
+    }
+
+    // ==================T2計算方式===========================================  
+    //			1/(8M/4/16/64/250)= 128 msec
+    //
+    //			1/(8M/4/16/64/19.53)= 10 msec
+    // =======================================================================
+
+    if(TMR2IF & TMR2IE)				// 128mS
+    {	
+        TMR2IF = 0;
+        T1GGO = 1;
 #if(AUTORUN)
         SpeedCunt++;
 #endif //end of AUTORUN
-//轉速錯誤	
-//		if (_1S_CNT == 0)			
-//		{
-//			RPM_Flag = 0;
-//			LED1 = 1;
-//		}
-//		else				
-//		{	_1S_CNT--;
-//			
-//		}
+        //轉速錯誤	
+        //		if (_1S_CNT == 0)			
+        //		{
+        //			RPM_Flag = 0;
+        //			LED1 = 1;
+        //		}
+        //		else				
+        //		{	_1S_CNT--;
+        //			
+        //		}
 
 
 
-//轉速為0時
-		if (_1S_CNT == 0)			
-		{
-				//RPM_Flag = 0;
-				
-			RPM_Zero = 1 ;
-			//LED3=1; 
-		}
-		else				
-		{	_1S_CNT--;
-			RPM_Zero = 0 ;
-			//LED3=0;	
-		}
-  	
-  	
-			
-//	5秒Time out旗標		
-		if (Work_status == 1)
-		{
-			if (_5S_CNT == 0)
-			{
-				Error_Flag = 1;
-				//_5S_Flage_Error=1;
-				Error_Mode = 1;
-				Pull_Error = 1; 
-				//LED2 = 1;
-			}
-			else				
-			{	_5S_CNT--;
-		
-			}
-		}
-		
-		//錯誤模式下啟動拉纜計數
-		
-		if (Pull_Error == 1)
-		{
-			if (Pull_5S_CNT == 0)
-			{
-				Pull = 1;
-			}
-			else				
-			{	
-				Pull_5S_CNT--;
-				Pull = 0;
-//				if(Pull == 3)
-//					Pull = 0;
-			}
-			
-		}
-		DelayTime_Count ++;
-		LED1_Count ++;
-		LED2_Count ++;
-		LED3_Count ++;
-		LED13_Count ++;
-        
+        //轉速為0時
+        if (_1S_CNT == 0)			
+        {
+            //RPM_Flag = 0;
+
+            RPM_Zero = 1 ;
+            //LED3=1; 
+        }
+        else				
+        {	_1S_CNT--;
+            RPM_Zero = 0 ;
+            //LED3=0;	
+        }
+
+
+
+        //	5秒Time out旗標		
+        if (Work_status == 1)
+        {
+            if (_5S_CNT == 0)
+            {
+                Error_Flag = 1;
+                //_5S_Flage_Error=1;
+                Error_Mode = 1;
+                Pull_Error = 1; 
+                //LED2 = 1;
+            }
+            else				
+            {	_5S_CNT--;
+
+            }
+        }
+
+        //錯誤模式下啟動拉纜計數
+
+        if (Pull_Error == 1)
+        {
+            if (Pull_5S_CNT == 0)
+            {
+                Pull = 1;
+            }
+            else				
+            {	
+                Pull_5S_CNT--;
+                Pull = 0;
+                //				if(Pull == 3)
+                //					Pull = 0;
+            }
+
+        }
+        DelayTime_Count ++;
+        LED1_Count ++;
+        LED2_Count ++;
+        LED3_Count ++;
+        LED13_Count ++;
+
 #if(AUTORUN)
         if (SpeedCunt == 23)
         {
@@ -552,1127 +552,1119 @@ void interrupt ISRs(void)
                     Gear_Status_NEW = _2WDLOCK;
                     SpeedCunt = 0;
                     break;
-                 case _2WDLOCK:
+                case _2WDLOCK:
                     Gear_Status_NEW = _4WDLOCK_1;
                     SpeedCunt = 0;
                     break;
             }
         }
 #endif //end of AUTORUN
-	}
-	
+    }
+
 }
 
 /******************************************************************************
-*   
-*
-*No_Feedback_EN START   不使用回授控制
-*
-*
-******************************************************************************/	 	
+ *   
+ *
+ *No_Feedback_EN START   不使用回授控制
+ *
+ *
+ ******************************************************************************/	 	
 void main(void)
 {
-	OSCCON = 0x70 ;								//8Mhz 
-	
-	while(!HFIOFR);								//INTOSC ready
-//	while(!PLLR);               //PLL ready
-																
-	//ANSELA = 0b00010000 ;		
-	ANSELA = 0b00010000 ;					//max2014
-	ANSELB = 0x00 ;		
-	ANSELD = 0x00 ;	
-	ANSELE = 0x00 ;		
-	
-	LATA = 0;
-	LATB = 0;
-	LATC = 0;
-	LATD = 0;
-	
-	
-	TRISA = 0b00101011;
-	TRISB = 0b00100001;						//RB0 = RA2 input
-	//TRISC = 0b00011111;
-	TRISC = 0b01001111;
-	
+    OSCCON = 0x70 ;			//8Mhz 
+
+    while(!HFIOFR);			//INTOSC ready
+    //	while(!PLLR);       //PLL ready
+
+    //ANSELA = 0b00010000 ;		
+    ANSELA = 0b00010000 ;	//max2014
+    ANSELB = 0x00 ;		
+    ANSELD = 0x00 ;	
+    ANSELE = 0x00 ;		
+
+    LATA = 0;
+    LATB = 0;
+    LATC = 0;
+    LATD = 0;
+
+
+    TRISA = 0b00101011;
+    TRISB = 0b00100001;						//RB0 = RA2 input
+    //TRISC = 0b00011111;
+    TRISC = 0b01001111;
+
 #if(_4WD_Test_EN)
-	TRISD = 0b00110111;
+    TRISD = 0b00110111;
 #else
-	TRISD = 0b00110011;
+    TRISD = 0b00110011;
 #endif
 
 #if 0
     //EEPROM check  address 8,9 10 -> ADC over volt value
     /*unsigned c hr3ar adc_overval = 0;
-    unsigned char Normal_Data = 0;
-    unsigned char ee_cunt = 0;
-    eeprom_write(8, 0xFF);
-    adc_overval = eeprom_read(8);
-     Normal_Data =	Init_ADC();
-    if (adc_overval == 0xFF)
-    {
-        while(Normal_Data < 0xc0)
-        {
-            ee_cunt++;
-            Normal_Data =	Init_ADC();
-            _delay(100);
-            if(ee_cunt >= 10) break;
-            
-        }
-        if ( ee_cunt > 10)
-        {
-            eeprom_write(8, 0xFF);
-            adc_overval = eeprom_read(8);
-        }
-        else
-        {
-            eeprom_write(8, Normal_Data);
-            adc_overval = eeprom_read(8);
-        }
-    }*/
+      unsigned char Normal_Data = 0;
+      unsigned char ee_cunt = 0;
+      eeprom_write(8, 0xFF);
+      adc_overval = eeprom_read(8);
+      Normal_Data =	Init_ADC();
+      if (adc_overval == 0xFF)
+      {
+      while(Normal_Data < 0xc0)
+      {
+      ee_cunt++;
+      Normal_Data =	Init_ADC();
+      _delay(100);
+      if(ee_cunt >= 10) break;
+
+      }
+      if ( ee_cunt > 10)
+      {
+      eeprom_write(8, 0xFF);
+      adc_overval = eeprom_read(8);
+      }
+      else
+      {
+      eeprom_write(8, Normal_Data);
+      adc_overval = eeprom_read(8);
+      }
+      }*/
     ADC_Func();
     while(1);
 #endif
-	TRISE = 0b00000000;						//RE0,RE1,RE2由input改為output
-	
-	INTCON = 0b11000000;					//GIE & PEIE
-	T1G_RPM_Init();
+    TRISE = 0b00000000;						//RE0,RE1,RE2由input改為output
 
-	//T2 using timer
+    INTCON = 0b11000000;					//GIE & PEIE
+    T1G_RPM_Init();
+
+    //T2 using timer
     // T2CKPS 1:64; T2OUTPS 1:16; TMR2ON on; 
-	T2CON = 0b01111011; //prescaler:64, T2:off, Postscaler: 1:16
-	TMR2IF = 0;	//Interrupt is no pending
-	TMR2IE = 1;
-	TMR2 = 0;
-	PR2 = 250 - 1;
-	T2_Start();
+    T2CON = 0b01111011; //prescaler:64, T2:off, Postscaler: 1:16
+    TMR2IF = 0;	//Interrupt is no pending
+    TMR2IE = 1;
+    TMR2 = 0;
+    PR2 = 250 - 1;
+    T2_Start();
 
-	INTEDG = 0; //0:falling edge will cause the interrupt
-				//1:rising edge will cause the interrupt
-	INTF = 0;
-	INTE = 1;
-	
-/******************************************************************************
-*   
-*定位CHECK
-*
-******************************************************************************/		
+    INTEDG = 0; //0:falling edge will cause the interrupt
+    //1:rising edge will cause the interrupt
+    INTF = 0;
+    INTE = 1;
+
+    /******************************************************************************
+     *   
+     *定位CHECK
+     *
+     ******************************************************************************/		
 #if(Front_Position_EN)
-        Front_Position();
+    Front_Position();
 #endif
 
 #if(Back_Position_EN)
-	Back_Position();
+    Back_Position();
 #endif
 
 #if(_2WD_Position_EN)
-	_2WD_Position();
+    _2WD_Position();
 #endif
 
 #if(_4WDL_Position_EN)
-	_4WDL_Position();
+    _4WDL_Position();
 #endif		
 
-										
-	Check_Motor_Status();
-	Check_Hand_Status();
-	switch(Gear_Status_NEW)
-	{
-				case _4WDLOCK_1:
-						 L1_Out = 0; L2_Out = 1; L3_Out = 1;
-						 Handback_Error = 0;
-						 break;	
-				case _2WDLOCK:
-						 L1_Out = 1; L2_Out = 0; L3_Out = 1;	
-					 	 Handback_Error = 0;
-					 	 break;
-				case _4WD_1:
-						 L1_Out = 0; L2_Out = 0; L3_Out = 1;
-						 Handback_Error = 0;
-					 	 break;
-				case _2WD:
-					   L1_Out = 1; L2_Out = 0; L3_Out = 0;
-						 Handback_Error = 0;
-						 break;
-				default:
-						 Handback_Error = 1;
-	}			
-//	Gear_Status_OLD = Gear_Status_NEW;				//將開機後初始狀態儲存
-	if( Error_Mode == 1)
-	{	
-//		LED1 = 1;
-//		while(1);
-		Special = 1;
-		//Pull = 1;
-		Gear_Status_NEW = _2WD;
-	}
-		
-	
-/******************************************************************************
-*
-*LOOP 迴圈開始
-*
-******************************************************************************/		
-	
-	while(1)
-	{	
 
-		if (Special == 1)												//開機第一次會做
-		{
-			Special = 0;
-		}
-		else
-		{	
+    Check_Motor_Status();
+    Check_Hand_Status();
+    switch(Gear_Status_NEW)
+    {
+        case _4WDLOCK_1:
+            L1_Out = 0; L2_Out = 1; L3_Out = 1;
+            Handback_Error = 0;
+            break;	
+        case _2WDLOCK:
+            L1_Out = 1; L2_Out = 0; L3_Out = 1;	
+            Handback_Error = 0;
+            break;
+        case _4WD_1:
+            L1_Out = 0; L2_Out = 0; L3_Out = 1;
+            Handback_Error = 0;
+            break;
+        case _2WD:
+            L1_Out = 1; L2_Out = 0; L3_Out = 0;
+            Handback_Error = 0;
+            break;
+        default:
+            Handback_Error = 1;
+    }			
+    //	Gear_Status_OLD = Gear_Status_NEW;				//將開機後初始狀態儲存
+    if( Error_Mode == 1)
+    {	
+        //		LED1 = 1;
+        //		while(1);
+        Special = 1;
+        //Pull = 1;
+        Gear_Status_NEW = _2WD;
+    }
+
+
+    /******************************************************************************
+     *
+     *LOOP 迴圈開始
+     *
+     ******************************************************************************/		
+
+    while(1)
+    {	
+
+        if (Special == 1)												//開機第一次會做
+        {
+            Special = 0;
+        }
+        else
+        {	
 #if(!AUTORUN)
-			Check_Hand_Status();
+            Check_Hand_Status();
 #endif // end of !AUTORUN
-			Check_Motor_Status();	
-		}
-			
-		ADC_Func();			
-		if( (RB5 == 1 && RPM_Zero ==1)||(RB5 == 0 && RPM_Zero ==1)) 	//轉速為"0"或接地時，RPM超速燈號關閉
-			Over_Speed_Error = 0;							
-	
-/******************************************************************************
-*   
-*LED 顯示控制區
-*
-******************************************************************************/			
-#if(LED_EN)		
-	
-	//if(Handback_Error == 1) 	{ LED1_FLASH(3);  }
-	//轉速為"0"、接地或轉速<1600rpm
-		if(RPM_Zero == 1 || Over_Speed_Error == 1)					
-		{	
-			LED3_FLASH(3); 
-		}
-		else
-		{
-			LED3 = 0;
-		}
-	
-		
-//	if(Over_Speed_Error == 1)	
-//	{	LED13_FLASH(3); 
-//	
-//	} 
-//	else
-//	{ if((Handback_Error == 0)&&(Voltage_Error  == 0))
-//			LED1 = 0 ; 
-//		if(RPM_Zero == 0)
-//			LED3 = 0; 
-//	}																		//RPM超速
-	
-		if((Error_Mode  == 1)|| (Handback_Error == 1))	{	LED2_FLASH(1); } else{ LED2 = 0; }
-		if(Voltage_Error  == 1)	{	LED1 = 1; } else{ LED1 = 0; }       //暫時關閉
-		
-#endif
-	
-		
+            Check_Motor_Status();	
+        }
 
-		while( Voltage_Error == 1)
-		{
-			ADC_Func();
-		}
-		
-		if(((RPM_Flag > 4)&&(Voltage_Error == 0))||((RB5 == 0)  && (Voltage_Error == 0)&& (Over_Speed_Error ==0))||((RB5 == 1)  && (Voltage_Error == 0)&& (Over_Speed_Error ==0)))	
-		{	
-			if(Pull_Error == 1 && Pull_Count < Pull_Value)		//錯誤模式下
-			{	if( Pull ==1)
-				{	
-					Pull_Count ++;
-					switch(Gear_Status_OLD)
-					{
-						case _4WDLOCK_1:
-								 Error_Mode_Func(_4WDLOCK_1,Motor_4WL_Status);	
-						break;
-						case _2WDLOCK:
-								 Error_Mode_Func(_2WDLOCK,Motor_2WL_Status);	
-						break;
-						case _4WD_1:
-								 Error_Mode_Func(_4WD_1,Motor_4WD_Status);	
-						break;
-						case _2WD:
-								 Error_Mode_Func(_2WD,Motor_2WD_Status);	
-						break;		
-					}
-					Pull_5S_CNT = Pull_Count_Val;
-				}
-				
-			}															   	
-			if (Gear_Status_NEW != Gear_Status_OLD)			 //把手狀態
-			{ Pull_Error = 0;								//把手有變化，拉的次數重新計數
-				Pull_Count = 0;
-				Pull_5S_CNT = Pull_Count_Val;
-				switch(Gear_Status_NEW)
-				{
-					case _4WDLOCK_1:
-							 L1_Out = 0; L2_Out = 1; L3_Out = 1;
-							 Change_Func(_4WDLOCK_1,Motor_4WL_Status);
-					break;
-									
-					case _2WDLOCK:
-							 L1_Out = 1; L2_Out = 0; L3_Out = 1;			//2WL輸出給ECU為"010"
-							 Change_Func(_2WDLOCK,Motor_2WL_Status);				 		 
-					break;
-		    
-					case _4WD_1:
-							 L1_Out = 0; L2_Out = 0; L3_Out = 1;	
-							 Change_Func(_4WD_1,Motor_4WD_Status);
-					break;
-					
-					case _2WD:
-							 L1_Out = 1; L2_Out = 0; L3_Out = 0;	
-							 Change_Func(_2WD,Motor_2WD_Status);
-					break;
-						
-									 	 		 
-				}
-				
-				
-				Gear_Status_OLD = Gear_Status_NEW;		  	
-			}
-			Check_Status();
-		  Output_ECU();
-			
-		}
-//		if(Error_Mode == 1)
-//		{	
-//			Pull_Count ++;
-//			if( Pull_Count >Pull_Value)
-//				Pull_Count = Pull_Value;
-//			
-//		}
-		
-	}
+        ADC_Func();			
+        if( (RB5 == 1 && RPM_Zero ==1)||(RB5 == 0 && RPM_Zero ==1)) 	//轉速為"0"或接地時，RPM超速燈號關閉
+            Over_Speed_Error = 0;							
+
+        /******************************************************************************
+         *   
+         *LED 顯示控制區
+         *
+         ******************************************************************************/			
+#if(LED_EN)		
+
+        //if(Handback_Error == 1) 	{ LED1_FLASH(3);  }
+        //轉速為"0"、接地或轉速<1600rpm
+        if(RPM_Zero == 1 || Over_Speed_Error == 1)					
+        {	
+            LED3_FLASH(3); 
+        }
+        else
+        {
+            LED3 = 0;
+        }
+
+
+        //	if(Over_Speed_Error == 1)	
+        //	{	LED13_FLASH(3); 
+        //	
+        //	} 
+        //	else
+        //	{ if((Handback_Error == 0)&&(Voltage_Error  == 0))
+        //			LED1 = 0 ; 
+        //		if(RPM_Zero == 0)
+        //			LED3 = 0; 
+        //	}																		//RPM超速
+
+        if((Error_Mode  == 1)|| (Handback_Error == 1))	{	LED2_FLASH(1); } else{ LED2 = 0; }
+        if(Voltage_Error  == 1)	{	LED1 = 1; } else{ LED1 = 0; }       //暫時關閉
+
+#endif
+
+        while( Voltage_Error == 1)
+        {
+            ADC_Func();
+        }
+
+        if(((RPM_Flag > 4)&&(Voltage_Error == 0))||((RB5 == 0)  && (Voltage_Error == 0)&& (Over_Speed_Error ==0))||((RB5 == 1)  && (Voltage_Error == 0)&& (Over_Speed_Error ==0)))	
+        {	
+            if(Pull_Error == 1 && Pull_Count < Pull_Value)		//錯誤模式下
+            {	
+                if( Pull ==1)
+                {	
+                    Pull_Count ++;
+                    switch(Gear_Status_OLD)
+                    {
+                        case _4WDLOCK_1:
+                            Error_Mode_Func(_4WDLOCK_1,Motor_4WL_Status);	
+                            break;
+                        case _2WDLOCK:
+                            Error_Mode_Func(_2WDLOCK,Motor_2WL_Status);	
+                            break;
+                        case _4WD_1:
+                            Error_Mode_Func(_4WD_1,Motor_4WD_Status);	
+                            break;
+                        case _2WD:
+                            Error_Mode_Func(_2WD,Motor_2WD_Status);	
+                            break;		
+                    }
+                    Pull_5S_CNT = Pull_Count_Val;
+                }
+
+            }															   	
+            if (Gear_Status_NEW != Gear_Status_OLD)			 //把手狀態
+            { 
+                Pull_Error = 0;								//把手有變化，拉的次數重新計數
+                Pull_Count = 0;
+                Pull_5S_CNT = Pull_Count_Val;
+                switch(Gear_Status_NEW)
+                {
+                    case _4WDLOCK_1:
+                        L1_Out = 0; L2_Out = 1; L3_Out = 1;
+                        Change_Func(_4WDLOCK_1,Motor_4WL_Status);
+                        break;
+
+                    case _2WDLOCK:
+                        L1_Out = 1; L2_Out = 0; L3_Out = 1;			//2WL輸出給ECU為"010"
+                        Change_Func(_2WDLOCK,Motor_2WL_Status);				 		 
+                        break;
+
+                    case _4WD_1:
+                        L1_Out = 0; L2_Out = 0; L3_Out = 1;	
+                        Change_Func(_4WD_1,Motor_4WD_Status);
+                        break;
+
+                    case _2WD:
+                        L1_Out = 1; L2_Out = 0; L3_Out = 0;	
+                        Change_Func(_2WD,Motor_2WD_Status);
+                        break;
+
+                }
+
+                Gear_Status_OLD = Gear_Status_NEW;		  	
+            }
+            Check_Status();
+            Output_ECU();
+
+        }
+        //		if(Error_Mode == 1)
+        //		{	
+        //			Pull_Count ++;
+        //			if( Pull_Count >Pull_Value)
+        //				Pull_Count = Pull_Value;
+        //			
+        //		}
+
+    }
 }	
 
 
 /******************************************************************************
-*    Check_Hand_Status
-******************************************************************************/
+ *    Check_Hand_Status
+ ******************************************************************************/
 
 void Check_Hand_Status(void)
 { 
-	unsigned char Loop = 1, k = 3;
-	do
-	{	Delay_128msec(1);
-		Gear_Status_NEW = PORTD & 0b00110011;
-		if(Gear_Status_NEW == _4WDLOCK_2)
-			Gear_Status_NEW = _4WDLOCK_1;
-		if(Gear_Status_NEW == _4WD_2)
-			Gear_Status_NEW = _4WD_1;
-			
-		switch(Gear_Status_NEW)
-		{
-					case _4WDLOCK_1:
-					case _2WDLOCK:
-					case _4WD_1:
-					case _2WD:
-							 Handback_Error = 0;
-							 Loop = 0;
-							 break;
-					default:
-							 Handback_Error = 1;
-							 k--;
-							 if( k== 0)
-							 {	
-							   Loop = 0;
-							 }	
-							 
-		}
-	}
-	while(Loop == 1);
-					
+    unsigned char Loop = 1, k = 3;
+    do
+    {	
+        Delay_128msec(1);
+        Gear_Status_NEW = PORTD & 0b00110011;
+
+        if(Gear_Status_NEW == _4WDLOCK_2)
+            Gear_Status_NEW = _4WDLOCK_1;
+        if(Gear_Status_NEW == _4WD_2)
+            Gear_Status_NEW = _4WD_1;
+
+        switch(Gear_Status_NEW)
+        {
+            case _4WDLOCK_1:
+            case _2WDLOCK:
+            case _4WD_1:
+            case _2WD:
+                Handback_Error = 0;
+                Loop = 0;
+                break;
+            default:
+                Handback_Error = 1;
+                k--;
+                if( k== 0)
+                {	
+                    Loop = 0;
+                }	
+
+        }
+    }
+    while(Loop == 1);
+
 }
 /******************************************************************************
-*    Check_Status
-******************************************************************************/
+ *    Check_Status
+ ******************************************************************************/
 
 void Check_Status(void)
 {				
-	                                       
-	switch(Gear_Status_NEW)
-	{
-				case _4WDLOCK_1:
-						 if((Motor_Temp == Motor_4WL_Status) && (Motor_Remove == 0))
-						 {		
-						 	Error_Mode = 0;
-						 	Pull_Error = 0;
-						 }
-						 break;
-				case _2WDLOCK:
-						 if(Motor_Temp == Motor_2WL_Status )
-						 {		
-						 	Error_Mode = 0;
-						 	Pull_Error = 0;
-						 }	
-						 break;
-				case _4WD_1:
-						 if(Motor_Temp == Motor_4WD_Status )
-						 {		
-						 	Error_Mode = 0;
-						 	Pull_Error = 0;
-						 }
-						 break;
-				case _2WD:
-						 if(Motor_Temp == Motor_2WD_Status )
-						 {		
-						 	Error_Mode = 0;
-						 	Pull_Error = 0;
-						 }
-						 break;
-				default :
-						 Error_Mode = 1;
-						 Pull_Error = 1;
-//				if(Pull_Error == 1)		
-//					Pull_Timer_Star = 1;
-//				else
-//					Pull_Timer_Star = 0;	 
-	}
 
-		
-
+    switch(Gear_Status_NEW)
+    {
+        case _4WDLOCK_1:
+            if((Motor_Temp == Motor_4WL_Status) && (Motor_Remove == 0))
+            {		
+                Error_Mode = 0;
+                Pull_Error = 0;
+            }
+            break;
+        case _2WDLOCK:
+            if(Motor_Temp == Motor_2WL_Status )
+            {		
+                Error_Mode = 0;
+                Pull_Error = 0;
+            }	
+            break;
+        case _4WD_1:
+            if(Motor_Temp == Motor_4WD_Status )
+            {		
+                Error_Mode = 0;
+                Pull_Error = 0;
+            }
+            break;
+        case _2WD:
+            if(Motor_Temp == Motor_2WD_Status )
+            {		
+                Error_Mode = 0;
+                Pull_Error = 0;
+            }
+            break;
+        default :
+            Error_Mode = 1;
+            Pull_Error = 1;
+            //				if(Pull_Error == 1)		
+            //					Pull_Timer_Star = 1;
+            //				else
+            //					Pull_Timer_Star = 0;	 
+    }
 }	
 
 /******************************************************************************
-*    Error_Exit_Func
-******************************************************************************/
+ *    Error_Exit_Func
+ ******************************************************************************/
 void Error_Exit_Func(void)
 {
-	Motor1_S();
-	Motor2_S();
-	Motor1_Y_out = 0;
-	Motor1_W_out = 0;
-	Motor2_Y_out = 0;
-	Motor2_W_out = 0;
-	Work_status =  0;
-//	Front_Error = 0;
-//	Back_Error = 0;
-	Error_Flag =0; 	
-	
+    Motor1_S();
+    Motor2_S();
+    Motor1_Y_out = 0;
+    Motor1_W_out = 0;
+    Motor2_Y_out = 0;
+    Motor2_W_out = 0;
+    Work_status =  0;
+    //	Front_Error = 0;
+    //	Back_Error = 0;
+    Error_Flag =0; 	
+
 } 	
 /******************************************************************************
-*    Change_Func
-******************************************************************************/
+ *    Change_Func
+ ******************************************************************************/
 
 void Change_Func(unsigned char Goto,unsigned char Status)
 {
-	
-  Moving_Status = Status;
-  _5S_CNT = _5S_Val;															
-  Work_status = 1;
-  ADC_Func();
-  Front_Error = 0 ;
-  Back_Error = 0 ;
-  
-  
-  
-  
-/******************************************************************************
-*   
-*
-*No_Feedback_EN START   不使用回授控制
-*
-*
-******************************************************************************/	 	
 
-	switch(Goto)
-			{
-				case _4WDLOCK_1 :	
-/////////////////////////4WL前差馬達/////////////////////////////////////////////////////////////
-/////////////////////////4WL前差馬達/////////////////////////////////////////////////////////////					 
-						 Motor1_Y_out = 1;		 
-				 		 while((Motor1_B_in == 1) && (Front_Error == 0) ) 
-				 		 {  
-				 		 		Motor1_F();	                              
-				 		 		if (Error_Flag == 1 )             
-				 		 		{	           
-				 		 			Front_Error = 1 ;                
-				 		 			Error_Exit_Func();                                     
-				 		 		}                                 
-				 		 }
-				 		 Front_Error = 0 ;
-				 		 Error_Exit_Func();
-				
-							
-/////////////////////////4WL後差馬達/////////////////////////////////////////////////////////////
-/////////////////////////4WL後差馬達/////////////////////////////////////////////////////////////						
-						 Motor2_W_out = 1;
-						 Work_status = 1;
-						 _5S_CNT = _5S_Val;
-							
-//						 if(Gear_Status_OLD == _2WD)						//2WD位置									 
-//						 {	
-						 		while((Motor2_B_in == 1) && (Back_Error == 0) ) 
-						 		{                                                
-						 			Motor2_R();          
-						 			if (Error_Flag == 1 )             
-						 			{	                        
-						 				Back_Error = 1 ;                
-						 				Error_Exit_Func();                                  
-						 			}                                 
-						 		}	                                  		
-//						 }
-						 Back_Error = 0 ;
-						 Error_Exit_Func();
-				break;
-				case _4WD_1:
-/////////////////////////4WD前差馬達/////////////////////////////////////////////////////////////						
-/////////////////////////4WD前差馬達/////////////////////////////////////////////////////////////						 
-						 Motor1_W_out = 1;
-						 if(	Gear_Status_OLD == _4WDLOCK_1 )																								//4WL位置
-						 {		 		
-						 		for(i = 0 ; i < 2 ; i++)
-								{
-									while((Motor1_Y_in == 1) && (Front_Error == 0))
-									{	Motor1_R();
-										if (Error_Flag == 1 )
-										{	
-											Front_Error = 1 ;					
-											Error_Exit_Func();
-										}
-									}
-									
-								}
-											
-						 }
-						 if((Gear_Status_OLD == _2WDLOCK) || (Gear_Status_OLD == _2WD) )											//2W位置
-						 {	
-						 		for(i = 0 ; i < 2 ; i++)
-								{
-									while((Motor1_Y_in == 1) && (Front_Error == 0))
-									{	Motor1_F();
-										if (Error_Flag == 1 )
-										{	
-											Front_Error = 1 ;					
-											Error_Exit_Func();
-										}
-									}
-									
-								}
-						 }
-						 Front_Error = 0 ;
-						 Error_Exit_Func();
-							
-							
-											
+    Moving_Status = Status;
+    _5S_CNT = _5S_Val;															
+    Work_status = 1;
+    ADC_Func();
+    Front_Error = 0 ;
+    Back_Error = 0 ;
 
-/////////////////////////4WD後差馬達/////////////////////////////////////////////////////////////								
-/////////////////////////4WD後差馬達/////////////////////////////////////////////////////////////							
-							Work_status = 1;
-							Motor2_W_out = 1;
-							_5S_CNT = _5S_Val;
+    /******************************************************************************
+     *
+     *No_Feedback_EN START   不使用回授控制
+     *
+     ******************************************************************************/	 	
 
-//							if(Gear_Status_OLD == _2WD)					//2W位置						 	
-//						 	{
-								while((Motor2_B_in == 1) && (Back_Error == 0) ) 
-								{                                         
-									Motor2_R();                                  
-									if (Error_Flag == 1 )             
-									{	
-										Back_Error = 1 ;                
-										Error_Exit_Func();                                  
-									}                                 
-								}	                                  		
-//							}
-							Back_Error = 0 ;
-							Error_Exit_Func();
-						
-						
-				break;
+    switch(Goto)
+    {
+        case _4WDLOCK_1 :	
+            /////////////////////////4WL前差馬達/////////////////////////////////////////////////////////////
+            /////////////////////////4WL前差馬達/////////////////////////////////////////////////////////////					 
+            Motor1_Y_out = 1;		 
+            while((Motor1_B_in == 1) && (Front_Error == 0) ) 
+            {  
+                Motor1_F();	                              
+                if (Error_Flag == 1 )             
+                {	           
+                    Front_Error = 1 ;                
+                    Error_Exit_Func();                                     
+                }                                 
+            }
+            Front_Error = 0 ;
+            Error_Exit_Func();
 
-				case _2WDLOCK :
 
-/////////////////////////2WL前差馬達/////////////////////////////////////////////////////////////
-/////////////////////////2WL前差馬達/////////////////////////////////////////////////////////////							
-							Motor1_W_out = 1;
-			  			while((Motor1_B_in == 1) && (Front_Error == 0) ) 
-						 	{                                                        
-						 		Motor1_R();	                                 
-						 		if (Error_Flag == 1 )             
-						 		{	          
-						 			Front_Error = 1 ;                
-						 			Error_Exit_Func();                                   
-						 		}                                 
-						 	}
-							Front_Error = 0 ;
-							Error_Exit_Func(); 
+            /////////////////////////4WL後差馬達/////////////////////////////////////////////////////////////
+            /////////////////////////4WL後差馬達/////////////////////////////////////////////////////////////						
+            Motor2_W_out = 1;
+            Work_status = 1;
+            _5S_CNT = _5S_Val;
 
-						
-							
-/////////////////////////2WL後差馬達/////////////////////////////////////////////////////////////
-/////////////////////////2WL後差馬達/////////////////////////////////////////////////////////////						
-							Motor2_W_out = 1;
-							Work_status = 1;
-							_5S_CNT = _5S_Val;
-//							if(Gear_Status_OLD == _2WD)				//2W位置
-//						 	{
-								while((Motor2_B_in == 1) && (Back_Error == 0) ) 
-								{ Motor2_R();	                                        
-									if (Error_Flag == 1 )             
-									{	           
-										Back_Error = 1 ;                
-										Error_Exit_Func();                                 
-									}                                 
-								} 
-//							}
-							Back_Error = 0 ;
-							Error_Exit_Func();
-	
-				break;
-				case _2WD:
-/////////////////////////////////////2WD前差馬達/////////////////////////////////////////////////////////////	
-/////////////////////////////////////2WD前差馬達/////////////////////////////////////////////////////////////								
-							Motor1_W_out = 1;
-			  			while((Front_Error == 0) && (Motor1_B_in == 1)) 
-						 	{ 
-						 		Motor1_R();	                                                                  
-						 		if (Error_Flag == 1 )             
-						 		{	           
-						 			Front_Error = 1 ;                
-						 			Error_Exit_Func();                                   
-						 		}                                 
-						 	}
-						 	Front_Error = 0 ;
-						 	Error_Exit_Func();                                  		
+            //						 if(Gear_Status_OLD == _2WD)						//2WD位置									 
+            //						 {	
+            while((Motor2_B_in == 1) && (Back_Error == 0) ) 
+            {                                                
+                Motor2_R();          
+                if (Error_Flag == 1 )             
+                {	                        
+                    Back_Error = 1 ;                
+                    Error_Exit_Func();                                  
+                }                                 
+            }	                                  		
+            //						 }
+            Back_Error = 0 ;
+            Error_Exit_Func();
+            break;
+        case _4WD_1:
+            /////////////////////////4WD前差馬達/////////////////////////////////////////////////////////////						
+            /////////////////////////4WD前差馬達/////////////////////////////////////////////////////////////						 
+            Motor1_W_out = 1;
+            if(	Gear_Status_OLD == _4WDLOCK_1 )																								//4WL位置
+            {		 		
+                for(i = 0 ; i < 2 ; i++)
+                {
+                    while((Motor1_Y_in == 1) && (Front_Error == 0))
+                    {	
+                        Motor1_R();
+                        if (Error_Flag == 1 )
+                        {	
+                            Front_Error = 1 ;					
+                            Error_Exit_Func();
+                        }
+                    }
 
-						
-/////////////////////////////////////2WD後差馬達/////////////////////////////////////////////////////////////	
-/////////////////////////////////////2WD後差馬達/////////////////////////////////////////////////////////////					
-							Work_status = 1;
-							Motor2_W_out = 1;
-							_5S_CNT = _5S_Val;
-							for(i = 0 ; i < 2 ; i++)
-							{
-								while( (Back_Error == 0) && (Motor2_Y_in == 1))
-								{	Motor2_F();
-									if (Error_Flag == 1 )
-									{	
-										Back_Error = 1 ;
-										Error_Exit_Func();
-									}
-								}
-							}
-							Back_Error = 0 ;
-							Error_Exit_Func();
-									
-				break;
-			}
-			
+                }
 
+            }
+            if((Gear_Status_OLD == _2WDLOCK) || (Gear_Status_OLD == _2WD) )											//2W位置
+            {	
+                for(i = 0 ; i < 2 ; i++)
+                {
+                    while((Motor1_Y_in == 1) && (Front_Error == 0))
+                    {	
+                        Motor1_F();
+                        if (Error_Flag == 1 )
+                        {	
+                            Front_Error = 1 ;					
+                            Error_Exit_Func();
+                        }
+                    }
+
+                }
+            }
+            Front_Error = 0 ;
+            Error_Exit_Func();
+
+
+
+
+            /////////////////////////4WD後差馬達/////////////////////////////////////////////////////////////								
+            /////////////////////////4WD後差馬達/////////////////////////////////////////////////////////////							
+            Work_status = 1;
+            Motor2_W_out = 1;
+            _5S_CNT = _5S_Val;
+
+            //							if(Gear_Status_OLD == _2WD)					//2W位置						 	
+            //						 	{
+            while((Motor2_B_in == 1) && (Back_Error == 0) ) 
+            {                                         
+                Motor2_R();                                  
+                if (Error_Flag == 1 )             
+                {	
+                    Back_Error = 1 ;                
+                    Error_Exit_Func();                                  
+                }                                 
+            }	                                  		
+            //							}
+            Back_Error = 0 ;
+            Error_Exit_Func();
+
+
+            break;
+
+        case _2WDLOCK :
+
+            /////////////////////////2WL前差馬達/////////////////////////////////////////////////////////////
+            /////////////////////////2WL前差馬達/////////////////////////////////////////////////////////////							
+            Motor1_W_out = 1;
+            while((Motor1_B_in == 1) && (Front_Error == 0) ) 
+            {                                                        
+                Motor1_R();	                                 
+                if (Error_Flag == 1 )             
+                {	          
+                    Front_Error = 1 ;                
+                    Error_Exit_Func();                                   
+                }                                 
+            }
+            Front_Error = 0 ;
+            Error_Exit_Func(); 
+
+
+
+            /////////////////////////2WL後差馬達/////////////////////////////////////////////////////////////
+            /////////////////////////2WL後差馬達/////////////////////////////////////////////////////////////						
+            Motor2_W_out = 1;
+            Work_status = 1;
+            _5S_CNT = _5S_Val;
+            //							if(Gear_Status_OLD == _2WD)				//2W位置
+            //						 	{
+            while((Motor2_B_in == 1) && (Back_Error == 0) ) 
+            { Motor2_R();	                                        
+                if (Error_Flag == 1 )             
+                {	           
+                    Back_Error = 1 ;                
+                    Error_Exit_Func();                                 
+                }                                 
+            } 
+            //							}
+            Back_Error = 0 ;
+            Error_Exit_Func();
+
+            break;
+        case _2WD:
+            /////////////////////////////////////2WD前差馬達/////////////////////////////////////////////////////////////	
+            /////////////////////////////////////2WD前差馬達/////////////////////////////////////////////////////////////								
+            Motor1_W_out = 1;
+            while((Front_Error == 0) && (Motor1_B_in == 1)) 
+            { 
+                Motor1_R();	                                                                  
+                if (Error_Flag == 1 )             
+                {	           
+                    Front_Error = 1 ;                
+                    Error_Exit_Func();                                   
+                }                                 
+            }
+            Front_Error = 0 ;
+            Error_Exit_Func();                                  		
+
+
+            /////////////////////////////////////2WD後差馬達/////////////////////////////////////////////////////////////	
+            /////////////////////////////////////2WD後差馬達/////////////////////////////////////////////////////////////					
+            Work_status = 1;
+            Motor2_W_out = 1;
+            _5S_CNT = _5S_Val;
+            for(i = 0 ; i < 2 ; i++)
+            {
+                while( (Back_Error == 0) && (Motor2_Y_in == 1))
+                {	
+                    Motor2_F();
+                    if (Error_Flag == 1 )
+                    {	
+                        Back_Error = 1 ;
+                        Error_Exit_Func();
+                    }
+                }
+            }
+            Back_Error = 0 ;
+            Error_Exit_Func();
+
+            break;
+    }
 }
 
 
 /******************************************************************************
-*    Motor1_F 馬達正轉
-******************************************************************************/
-	
+ *    Motor1_F 馬達正轉
+ ******************************************************************************/
+
 void Motor1_F(void)
 {
-	LATB = LATB & 0b11100001;
-	LATBbits.LATB4 = 1;
+    LATB = LATB & 0b11100001;
+    LATBbits.LATB4 = 1;
 }
 
 /******************************************************************************
-*    Motor1_R 馬達反轉
-******************************************************************************/
+ *    Motor1_R 馬達反轉
+ ******************************************************************************/
 
 void Motor1_R(void)
 {
-	LATB = LATB & 0b11100001;
-	LATBbits.LATB3 = 1;
+    LATB = LATB & 0b11100001;
+    LATBbits.LATB3 = 1;
 }
 
 /******************************************************************************
-*    Motor1_S 馬達停止
-******************************************************************************/
+ *    Motor1_S 馬達停止
+ ******************************************************************************/
 
 void Motor1_S(void)
 {
-	LATB = LATB & 0b11100001;
+    LATB = LATB & 0b11100001;
 }
 
 /******************************************************************************
-*    Motor2_F 馬達正轉
-******************************************************************************/
+ *    Motor2_F 馬達正轉
+ ******************************************************************************/
 
 void Motor2_F(void)
 {
-	LATB = LATB & 0b11100001;
-	LATBbits.LATB2 = 1;
+    LATB = LATB & 0b11100001;
+    LATBbits.LATB2 = 1;
 }
 
 /******************************************************************************
-*    Motor2_R 馬達反轉
-******************************************************************************/
+ *    Motor2_R 馬達反轉
+ ******************************************************************************/
 
 void Motor2_R(void)
 {
-	LATB = LATB & 0b11100001;
-	LATBbits.LATB1 = 1;
+    LATB = LATB & 0b11100001;
+    LATBbits.LATB1 = 1;
 }
 
 /******************************************************************************
-*    Motor2_S 馬達停止
-******************************************************************************/
+ *    Motor2_S 馬達停止
+ ******************************************************************************/
 
 void Motor2_S(void)
 {
-	LATB = LATB & 0b11100001;
+    LATB = LATB & 0b11100001;
 }
 
 /******************************************************************************
-*    T2_Start
-******************************************************************************/
+ *    T2_Start
+ ******************************************************************************/
 
 void T2_Start(void)
 {
-	TMR2 = 0;
-	TMR2IF = 0;
-	TMR2ON = 1;
+    TMR2 = 0;
+    TMR2IF = 0;
+    TMR2ON = 1;
 }
 
 /******************************************************************************
-*    T2_Stop
-******************************************************************************/
+ *    T2_Stop
+ ******************************************************************************/
 
 void T2_Stop(void)
 {
-	TMR2IF = 0;
-	TMR2ON = 0;	
+    TMR2IF = 0;
+    TMR2ON = 0;	
 }
 
 /******************************************************************************
-*    T1G_RPM_Init
-*   interrupt time: 8M/4/2 = 1MHz
-******************************************************************************/
+ *    T1G_RPM_Init
+ *   interrupt time: 8M/4/2 = 1MHz
+ ******************************************************************************/
 
 void T1G_RPM_Init(void)
 {
-	//T1CKPS 1:2; T1OSCEN disabled; nT1SYNC synchronize; TMR1CS FOSC/4; TMR1ON enabled;
+    //T1CKPS 1:2; T1OSCEN disabled; nT1SYNC synchronize; TMR1CS FOSC/4; TMR1ON enabled;
     T1CON = 0b00010000;			//INTRC 1:2 
-    
+
     //T1GSS T1G; TMR1GE enabled; T1GTM enabled; T1GPOL high; T1GGO ready; T1GSPM enabled; 
-	T1GCON = 0b11110000;
-	TMR1H = 0;
-	TMR1L = 0;
-	TMR1GIF = 0;
-	TMR1GIE = 1;
-	TMR1ON = 1;
-	T1GGO = 1;
+    T1GCON = 0b11110000;
+    TMR1H = 0;
+    TMR1L = 0;
+    TMR1GIF = 0;
+    TMR1GIE = 1;
+    TMR1ON = 1;
+    T1GGO = 1;
 }
 
 /******************************************************************************
-*    Error_Mode_Func
-******************************************************************************/
+ *    Error_Mode_Func
+ ******************************************************************************/
 void Error_Mode_Func(unsigned char Goto,unsigned char Status)
 {
-	
-  Moving_Status = Status;
-  _5S_CNT = _5S_Val;															
-  Work_status = 1;
-  ADC_Func();
-  Front_Error = 0 ;
-  Back_Error = 0 ;
-  
-/******************************************************************************
-*   
-*
-*No_Feedback_EN START   不使用回授控制
-*
-*
-******************************************************************************/	 	
 
-	switch(Goto)
-			{
-				case _4WDLOCK_1 :	
-/////////////////////////4WL前差馬達/////////////////////////////////////////////////////////////
-/////////////////////////4WL前差馬達/////////////////////////////////////////////////////////////					 
-						 Motor1_Y_out = 1;		 
-				 		 while((Motor1_B_in == 1) && (Front_Error == 0) ) 
-				 		 {  
-				 		 		Motor1_F();	                              
-				 		 		if (Error_Flag == 1 )             
-				 		 		{	           
-				 		 			Front_Error = 1 ;                
-				 		 			Error_Exit_Func();                                     
-				 		 		}                                 
-				 		 }
-				 		 Front_Error = 0 ;
-				 		 Error_Exit_Func();
-				
-							
-/////////////////////////4WL後差馬達/////////////////////////////////////////////////////////////
-/////////////////////////4WL後差馬達/////////////////////////////////////////////////////////////						
-						 Motor2_W_out = 1;
-						 Work_status = 1;
-						 _5S_CNT = _5S_Val;
-							
-						 		while((Motor2_B_in == 1) && (Back_Error == 0) ) 
-						 		{                                                
-						 			Motor2_R();          
-						 			if (Error_Flag == 1 )             
-						 			{	                        
-						 				Back_Error = 1 ;                
-						 				Error_Exit_Func();                                  
-						 			}                                 
-						 		}	                                  		
-						 Back_Error = 0 ;
-						 Error_Exit_Func();
-				break;
-				case _4WD_1:
-/////////////////////////4WD前差馬達/////////////////////////////////////////////////////////////						
-/////////////////////////4WD前差馬達/////////////////////////////////////////////////////////////						 
-						 Motor1_W_out = 1;
-						 if((	Gear_Status_OLD == _4WDLOCK_1) || (Motor_Remove == 1))																								//4WL位置
-						 {		 		
-						 		for(i = 0 ; i < 2 ; i++)
-								{
-									while((Motor1_Y_in == 1) && (Front_Error == 0))
-									{	Motor1_R();
-										if (Error_Flag == 1 )
-										{	
-											Front_Error = 1 ;					
-											Error_Exit_Func();
-										}
-									}
-									
-								}
-											
-						 }
-						 if((Gear_Status_OLD == _2WDLOCK) || (Gear_Status_OLD == _2WD) || (Motor_Remove == 1))											//2W位置
-						 {	
-						 		for(i = 0 ; i < 2 ; i++)
-								{
-									while((Motor1_Y_in == 1) && (Front_Error == 0))
-									{	Motor1_F();
-										if (Error_Flag == 1 )
-										{	
-											Front_Error = 1 ;					
-											Error_Exit_Func();
-										}
-									}
-									
-								}
-						 }
-						 Front_Error = 0 ;
-						 Error_Exit_Func();
-							
-							
-											
+    Moving_Status = Status;
+    _5S_CNT = _5S_Val;															
+    Work_status = 1;
+    ADC_Func();
+    Front_Error = 0 ;
+    Back_Error = 0 ;
 
-/////////////////////////4WD後差馬達/////////////////////////////////////////////////////////////								
-/////////////////////////4WD後差馬達/////////////////////////////////////////////////////////////							
-							Work_status = 1;
-							Motor2_W_out = 1;
-							_5S_CNT = _5S_Val;
+    /******************************************************************************
+     *   
+     *
+     *No_Feedback_EN START   不使用回授控制
+     *
+     *
+     ******************************************************************************/	 	
 
-								while((Motor2_B_in == 1) && (Back_Error == 0) ) 
-								{                                         
-									Motor2_R();                                  
-									if (Error_Flag == 1 )             
-									{	
-										Back_Error = 1 ;                
-										Error_Exit_Func();                                  
-									}                                 
-								}	                                  		
-							Back_Error = 0 ;
-							Error_Exit_Func();
-						
-						
-				break;
+    switch(Goto)
+    {
+        case _4WDLOCK_1 :	
+            /////////////////////////4WL前差馬達/////////////////////////////////////////////////////////////
+            /////////////////////////4WL前差馬達/////////////////////////////////////////////////////////////					 
+            Motor1_Y_out = 1;		 
+            while((Motor1_B_in == 1) && (Front_Error == 0) ) 
+            {  
+                Motor1_F();	                              
+                if (Error_Flag == 1 )             
+                {	           
+                    Front_Error = 1 ;                
+                    Error_Exit_Func();                                     
+                }                                 
+            }
+            Front_Error = 0 ;
+            Error_Exit_Func();
 
-				case _2WDLOCK :
 
-/////////////////////////2WL前差馬達/////////////////////////////////////////////////////////////
-/////////////////////////2WL前差馬達/////////////////////////////////////////////////////////////							
-							Motor1_W_out = 1;
-			  			while((Motor1_B_in == 1) && (Front_Error == 0) ) 
-						 	{                                                        
-						 		Motor1_R();	                                 
-						 		if (Error_Flag == 1 )             
-						 		{	          
-						 			Front_Error = 1 ;                
-						 			Error_Exit_Func();                                   
-						 		}                                 
-						 	}
-							Front_Error = 0 ;
-							Error_Exit_Func(); 
+            /////////////////////////4WL後差馬達/////////////////////////////////////////////////////////////
+            /////////////////////////4WL後差馬達/////////////////////////////////////////////////////////////						
+            Motor2_W_out = 1;
+            Work_status = 1;
+            _5S_CNT = _5S_Val;
 
-						
-							
-/////////////////////////2WL後差馬達/////////////////////////////////////////////////////////////
-/////////////////////////2WL後差馬達/////////////////////////////////////////////////////////////						
-							Motor2_W_out = 1;
-							Work_status = 1;
-							_5S_CNT = _5S_Val;
-								while((Motor2_B_in == 1) && (Back_Error == 0) ) 
-								{ Motor2_R();	                                        
-									if (Error_Flag == 1 )             
-									{	           
-										Back_Error = 1 ;                
-										Error_Exit_Func();                                 
-									}                                 
-								} 
-							Back_Error = 0 ;
-							Error_Exit_Func();
-	
-				break;
-				case _2WD:
-/////////////////////////////////////2WD前差馬達/////////////////////////////////////////////////////////////	
-/////////////////////////////////////2WD前差馬達/////////////////////////////////////////////////////////////								
-							Motor1_W_out = 1;
-			  			while((Front_Error == 0) && (Motor1_B_in == 1)) 
-						 	{ 
-						 		Motor1_R();	                                                                  
-						 		if (Error_Flag == 1 )             
-						 		{	           
-						 			Front_Error = 1 ;                
-						 			Error_Exit_Func();                                   
-						 		}                                 
-						 	}
-						 	Front_Error = 0 ;
-						 	Error_Exit_Func();                                  		
+            while((Motor2_B_in == 1) && (Back_Error == 0) ) 
+            {                                                
+                Motor2_R();          
+                if (Error_Flag == 1 )             
+                {	                        
+                    Back_Error = 1 ;                
+                    Error_Exit_Func();                                  
+                }                                 
+            }	                                  		
+            Back_Error = 0 ;
+            Error_Exit_Func();
+            break;
+        case _4WD_1:
+            /////////////////////////4WD前差馬達/////////////////////////////////////////////////////////////						
+            /////////////////////////4WD前差馬達/////////////////////////////////////////////////////////////						 
+            Motor1_W_out = 1;
+            if((	Gear_Status_OLD == _4WDLOCK_1) || (Motor_Remove == 1))																								//4WL位置
+            {		 		
+                for(i = 0 ; i < 2 ; i++)
+                {
+                    while((Motor1_Y_in == 1) && (Front_Error == 0))
+                    {	
+                        Motor1_R();
+                        if (Error_Flag == 1 )
+                        {	
+                            Front_Error = 1 ;					
+                            Error_Exit_Func();
+                        }
+                    }
 
-						
-/////////////////////////////////////2WD後差馬達/////////////////////////////////////////////////////////////	
-/////////////////////////////////////2WD後差馬達/////////////////////////////////////////////////////////////					
-							Work_status = 1;
-							Motor2_W_out = 1;
-							_5S_CNT = _5S_Val;
-							for(i = 0 ; i < 2 ; i++)
-							{
-								while( (Back_Error == 0) && (Motor2_Y_in == 1))
-								{	Motor2_F();
-									if (Error_Flag == 1 )
-									{	
-										Back_Error = 1 ;
-										Error_Exit_Func();
-									}
-								}
-							}
-							Back_Error = 0 ;
-							Error_Exit_Func();
-									
-				break;
-			}
-			
+                }
 
+            }
+            if((Gear_Status_OLD == _2WDLOCK) || (Gear_Status_OLD == _2WD) || (Motor_Remove == 1))											//2W位置
+            {	
+                for(i = 0 ; i < 2 ; i++)
+                {
+                    while((Motor1_Y_in == 1) && (Front_Error == 0))
+                    {	
+                        Motor1_F();
+                        if (Error_Flag == 1 )
+                        {	
+                            Front_Error = 1 ;					
+                            Error_Exit_Func();
+                        }
+                    }
+
+                }
+            }
+            Front_Error = 0 ;
+            Error_Exit_Func();
+
+            /////////////////////////4WD後差馬達/////////////////////////////////////////////////////////////								
+            /////////////////////////4WD後差馬達/////////////////////////////////////////////////////////////							
+            Work_status = 1;
+            Motor2_W_out = 1;
+            _5S_CNT = _5S_Val;
+
+            while((Motor2_B_in == 1) && (Back_Error == 0) ) 
+            {                                         
+                Motor2_R();                                  
+                if (Error_Flag == 1 )             
+                {	
+                    Back_Error = 1 ;                
+                    Error_Exit_Func();                                  
+                }                                 
+            }	                                  		
+            Back_Error = 0 ;
+            Error_Exit_Func();
+
+
+            break;
+
+        case _2WDLOCK :
+
+            /////////////////////////2WL前差馬達/////////////////////////////////////////////////////////////
+            /////////////////////////2WL前差馬達/////////////////////////////////////////////////////////////							
+            Motor1_W_out = 1;
+            while((Motor1_B_in == 1) && (Front_Error == 0) ) 
+            {                                                        
+                Motor1_R();	                                 
+                if (Error_Flag == 1 )             
+                {	          
+                    Front_Error = 1 ;                
+                    Error_Exit_Func();                                   
+                }                                 
+            }
+            Front_Error = 0 ;
+            Error_Exit_Func(); 
+
+
+
+            /////////////////////////2WL後差馬達/////////////////////////////////////////////////////////////
+            /////////////////////////2WL後差馬達/////////////////////////////////////////////////////////////						
+            Motor2_W_out = 1;
+            Work_status = 1;
+            _5S_CNT = _5S_Val;
+            while((Motor2_B_in == 1) && (Back_Error == 0) ) 
+            { 
+                Motor2_R();	                                        
+                if (Error_Flag == 1 )             
+                {	           
+                    Back_Error = 1 ;                
+                    Error_Exit_Func();                                 
+                }                                 
+            } 
+            Back_Error = 0 ;
+            Error_Exit_Func();
+
+            break;
+        case _2WD:
+            /////////////////////////////////////2WD前差馬達/////////////////////////////////////////////////////////////	
+            /////////////////////////////////////2WD前差馬達/////////////////////////////////////////////////////////////								
+            Motor1_W_out = 1;
+            while((Front_Error == 0) && (Motor1_B_in == 1)) 
+            { 
+                Motor1_R();	                                                                  
+                if (Error_Flag == 1 )             
+                {	           
+                    Front_Error = 1 ;                
+                    Error_Exit_Func();                                   
+                }                                 
+            }
+            Front_Error = 0 ;
+            Error_Exit_Func();                                  		
+
+
+            /////////////////////////////////////2WD後差馬達/////////////////////////////////////////////////////////////	
+            /////////////////////////////////////2WD後差馬達/////////////////////////////////////////////////////////////					
+            Work_status = 1;
+            Motor2_W_out = 1;
+            _5S_CNT = _5S_Val;
+            for(i = 0 ; i < 2 ; i++)
+            {
+                while( (Back_Error == 0) && (Motor2_Y_in == 1))
+                {	
+                    Motor2_F();
+                    if (Error_Flag == 1 )
+                    {	
+                        Back_Error = 1 ;
+                        Error_Exit_Func();
+                    }
+                }
+            }
+            Back_Error = 0 ;
+            Error_Exit_Func();
+
+            break;
+    }
 }
 
 
 /******************************************************************************
-*    Delay_128msec
-******************************************************************************/
+ *    Delay_128msec
+ ******************************************************************************/
 
 void Delay_128msec(unsigned int Time)
 {	
-	DelayTime_Count=0;
-	while(DelayTime_Count < Time );                       
-//	{
-//		NOP();
-//	}
+    DelayTime_Count=0;
+    while(DelayTime_Count < Time );                       
+    //	{
+    //		NOP();
+    //	}
 }
 /******************************************************************************
-*    LED1_FLASH
-******************************************************************************/
+ *    LED1_FLASH
+ ******************************************************************************/
 
 void LED1_FLASH(unsigned int Time)
 {	
 
-	if(LED1_Count >= Time)
-	{	LED1_Count =0;
-		LED1 =!LED1;
-	}
-				
-
-	 
+    if(LED1_Count >= Time)
+    {	LED1_Count =0;
+        LED1 =!LED1;
+    }
 }
 
 /******************************************************************************
-*    LED2_FLASH
-******************************************************************************/
+ *    LED2_FLASH
+ ******************************************************************************/
 
 void LED2_FLASH(unsigned int Time)
 {	
-//	LED2 = 1;
-//	Delay_128msec(Time);
-//	LED2 = 0;
-	//Delay_128msec(Time);
-	if(LED2_Count >= Time)
-	{	LED2_Count =0;
-		LED2 =!LED2;
-	}
+    //	LED2 = 1;
+    //	Delay_128msec(Time);
+    //	LED2 = 0;
+    //Delay_128msec(Time);
+    if(LED2_Count >= Time)
+    {	
+        LED2_Count =0;
+        LED2 =!LED2;
+    }
 }
 
 /******************************************************************************
-*    LED3_FLASH
-******************************************************************************/
+ *    LED3_FLASH
+ ******************************************************************************/
 
 void LED3_FLASH(unsigned int Time)
 {	
-	if(LED13_Count >= Time)
-	{	LED13_Count =0;
-		LED3 =!LED3;
-	}
+    if(LED13_Count >= Time)
+    {	
+        LED13_Count =0;
+        LED3 =!LED3;
+    }
 }
 
 /******************************************************************************
-*    LED13_FLASH
-******************************************************************************/
+ *    LED13_FLASH
+ ******************************************************************************/
 
 void LED13_FLASH(unsigned int Time)
 {	
-	if(LED13_Count >= Time)
-	{	LED13_Count =0;
-		LED1 =!LED1;
-		LED3 =!LED3;
-	}
-	 
+    if(LED13_Count >= Time)
+    {	
+        LED13_Count =0;
+        LED1 =!LED1;
+        LED3 =!LED3;
+    }
+
 }
 
 /******************************************************************************
-*    ReadFeedback
-******************************************************************************/
+ *    ReadFeedback
+ ******************************************************************************/
 
 void ReadFeedback(void)
 {	
-	TD_CNT = 0;
-	do
-	{
-		TD_Temp = PORTE & 0x07;     			//變速箱齒輪位置 
-		if (TD_Temp != TD_OLD_Status)
-		{
-			TD_OLD_Status = PORTE & 0x07;     	//變速箱齒輪位置 	
-			TD_CNT = 0;
-		}
-		else
-		{
-			TD_CNT++;
-		}
-	}
-	while(TD_CNT < 200);
+    TD_CNT = 0;
+    do
+    {
+        TD_Temp = PORTE & 0x07;     			//變速箱齒輪位置 
+        if (TD_Temp != TD_OLD_Status)
+        {
+            TD_OLD_Status = PORTE & 0x07;     	//變速箱齒輪位置 	
+            TD_CNT = 0;
+        }
+        else
+        {
+            TD_CNT++;
+        }
+    }
+    while(TD_CNT < 200);
 }
 
 /******************************************************************************
-*    Front_Position
-******************************************************************************/
+ *    Front_Position
+ ******************************************************************************/
 
 void Front_Position(void)
 {
-	//Check_Motor_Status();	
-		Motor1_W_out = 1;
-		for(i = 0 ; i < 200 ; i++); //delay:
-		for(i = 0 ; i < 200 ; i++);
-		//if(Motor_4WDLOCK_Gear == 1)
-		if(Motor1_Y_in == 1 && Motor1_B_in == 1 && Motor1_W_in == 0)										//4WL位置
-		{	LED1 =1;
-			
-			for(i = 0 ; i < 2 ; i++)
-			{
-				while(Motor1_Y_in == 1)
-				{
-					Motor1_R();
-				}
-			}
-			Motor1_S();
-			
-								
-		}
-		//else if(Motor_2WDLOCK_Gear == 1 || Motor_2WD_Gear ==1)
-		else if (Motor1_Y_in == 1 && Motor1_B_in == 0 && Motor1_W_in == 0)		//2WD/2WL位置
-		{	LED2 =1;
-			
-			for(i = 0 ; i < 2 ; i++)
-			for(i = 0 ; i < 2 ; i++)
-			{
-				while(Motor1_Y_in == 1)
-				{
-					Motor1_F();
-				}
-			}
-			Motor1_S();
-			
-		}
-		else
-		{	LED3 =1;
-			
-			
-		}
-		Motor1_W_out = 0;
-		while(1);
+    //Check_Motor_Status();	
+    Motor1_W_out = 1;
+    for(i = 0 ; i < 200 ; i++); //delay:
+    for(i = 0 ; i < 200 ; i++);
+    //if(Motor_4WDLOCK_Gear == 1)
+    if(Motor1_Y_in == 1 && Motor1_B_in == 1 && Motor1_W_in == 0)										//4WL位置
+    {	
+        LED1 =1;
+
+        for(i = 0 ; i < 2 ; i++)
+        {
+            while(Motor1_Y_in == 1)
+            {
+                Motor1_R();
+            }
+        }
+        Motor1_S();
+
+
+    }
+    //else if(Motor_2WDLOCK_Gear == 1 || Motor_2WD_Gear ==1)
+    else if (Motor1_Y_in == 1 && Motor1_B_in == 0 && Motor1_W_in == 0)		//2WD/2WL位置
+    {	
+        LED2 =1;
+
+        for(i = 0 ; i < 2 ; i++)
+            for(i = 0 ; i < 2 ; i++)
+            {
+                while(Motor1_Y_in == 1)
+                {
+                    Motor1_F();
+                }
+            }
+        Motor1_S();
+
+    }
+    else
+    {	
+        LED3 =1;
+    }
+    Motor1_W_out = 0;
+    while(1);
 }
 
 /******************************************************************************
-*    Back_Position
-******************************************************************************/
+ *    Back_Position
+ ******************************************************************************/
 
 void Back_Position(void)
 {
-	while(1)
-	{	Motor2_W_out = 1;
-		for(i = 0 ; i < 200 ; i++);
-		if(Motor2_Y_in == 1)
-		{
-			Motor2_F();				
-			for(i = 0 ; i < 2 ; i++)
-			{
-				while(Motor2_Y_in == 1)
-				{
-					NOP();
-				}
-			}
-			Motor2_S();
-		}		
-		Motor2_W_out = 0;
-	}
+    while(1)
+    {	Motor2_W_out = 1;
+        for(i = 0 ; i < 200 ; i++);
+        if(Motor2_Y_in == 1)
+        {
+            Motor2_F();				
+            for(i = 0 ; i < 2 ; i++)
+            {
+                while(Motor2_Y_in == 1)
+                {
+                    NOP();
+                }
+            }
+            Motor2_S();
+        }		
+        Motor2_W_out = 0;
+    }
 }	
 
 /******************************************************************************
-* _2WD_Position
-******************************************************************************/
+ * _2WD_Position
+ ******************************************************************************/
 void _2WD_Position(void)
 {
-		Motor1_W_out = 1;
-		for(i = 0 ; i < 200 ; i++);
-		for(i = 0 ; i < 200 ; i++);
-		
-		
-			
-		Motor1_R();
-		for(i = 0 ; i < 2 ; i++)
-		{
-			while(Motor1_B_in == 1);
-//			
-		}
-		Motor1_S();
-		Motor1_W_out = 0;
-		while(1);						
+    Motor1_W_out = 1;
+    for(i = 0 ; i < 200 ; i++);
+    for(i = 0 ; i < 200 ; i++);
+
+    Motor1_R();
+    for(i = 0 ; i < 2 ; i++)
+    {
+        while(Motor1_B_in == 1);
+        //			
+    }
+    Motor1_S();
+    Motor1_W_out = 0;
+    while(1);						
 }	
 
 /******************************************************************************
-* _4WDL_Position
-******************************************************************************/
+ * _4WDL_Position
+ ******************************************************************************/
 void _4WDL_Position(void)
 {
-	Motor1_Y_out = 1;
-	for(i = 0 ; i < 200 ; i++);
-	for(i = 0 ; i < 200 ; i++);
-	if(Motor1_B_in == 1)
-	{	Motor1_F();
-		for(i = 0 ; i < 2 ; i++)
-		{
-			while(Motor1_B_in == 1);
-		}
-		Motor1_S();
-	}	
-		Motor1_Y_out = 0;
-		while(1);
+    Motor1_Y_out = 1;
+    for(i = 0 ; i < 200 ; i++);
+    for(i = 0 ; i < 200 ; i++);
+    if(Motor1_B_in == 1)
+    {	
+        Motor1_F();
+        for(i = 0 ; i < 2 ; i++)
+        {
+            while(Motor1_B_in == 1);
+        }
+        Motor1_S();
+    }	
+    Motor1_Y_out = 0;
+    while(1);
 }	
 
 /******************************************************************************
-*    Check_Status
-******************************************************************************/
+ *    Check_Status
+ ******************************************************************************/
 
 //void Check_Status(void)
 //{				
@@ -1713,129 +1705,129 @@ void _4WDL_Position(void)
 
 
 /******************************************************************************
-*    Check_Motor_Status
-******************************************************************************/
+ *    Check_Motor_Status
+ ******************************************************************************/
 
 void Check_Motor_Status(void)
 {	
-//	OLD_Motor_2WDLOCK_Gear 	= 0;
-//	OLD_Motor_4WD_Gear 			= 0;
-//	OLD_Motor_2WD_Gear 			= 0;
-//	OLD_Motor_4WDLOCK_Gear 	= 0;
-	Motor_Temp							= 0;
-	
-	Motor1_W_out = 1;
-	Motor2_W_out = 1;
-  for(i = 0 ; i < 200 ; i++);
-  for(i = 0 ; i < 200 ; i++);
-  Motor_Front_Status = PORTA & 0x0B;						//前差RA0/W,RA1/B,RA3/Y
-  Motor_Back_Status =  PORTC & 0x07;						//後差RC0/W,RC1/B,RC2/Y
-  Motor_Temp =((Motor_Front_Status << 4)|( Motor_Back_Status));
-  
-//  if (Motor_Temp != Motor_OLD_Status)
-//	{
-//		Motor_OLD_Status = Motor_Temp; 
-//	}	
-	//Motor_OLD_Status = Motor_Temp; 	
-	Motor1_W_out = 0;
-  Motor2_W_out = 0;
-	switch( Motor_Temp )
- 	{
- 		case Motor_2WD_Status :	
- 				 Gear_Status_OLD = _2WD;
- 				 Error_Mode = 0;
- 				 break;
- 		case Motor_2WL_Status :
- 				 Gear_Status_OLD = _2WDLOCK;
- 				 Error_Mode = 0;
- 				 break;
- 		case Motor_4WD_Status :	
- 				 Gear_Status_OLD = _4WD_1;
- 				 Error_Mode = 0;
- 				 break;	
- 				 
- 		case Motor_4WL_Status :	
- 				 Motor1_Y_out = 1;
- 				 for(i = 0 ; i < 200 ; i++);
-  			 for(i = 0 ; i < 200 ; i++);
-  			 Motor_Front_Status = PORTA & 0x0B;			//前差RA0/W,RA1/B,RA3/Y
- 				 if( Motor_Front_Status == 0x03)		//斷線狀態或UnKnow狀態
- 				 {	Error_Mode = 1;
- 				 		Motor_Remove = 1;
- 				 }
- 				 else	
- 				 {	//OLD_Motor_4WDLOCK_Gear = 1;		//4WL的狀態
- 				 		Motor_Remove = 0;
- 				 		Gear_Status_OLD = _4WDLOCK_1;
- 				 		Error_Mode = 0;
- 				 }
- 				 Motor1_Y_out = 0;
- 				 break;
- 			
- 		default:
- 				 Error_Mode = 1;
- 				 //Gear_Status_OLD = Motor_Temp;
- 				 
- 			
- 	}		
-	
+    //	OLD_Motor_2WDLOCK_Gear 	= 0;
+    //	OLD_Motor_4WD_Gear 			= 0;
+    //	OLD_Motor_2WD_Gear 			= 0;
+    //	OLD_Motor_4WDLOCK_Gear 	= 0;
+    Motor_Temp							= 0;
 
-  
+    Motor1_W_out = 1;
+    Motor2_W_out = 1;
+    for(i = 0 ; i < 200 ; i++);
+    for(i = 0 ; i < 200 ; i++);
+    Motor_Front_Status = PORTA & 0x0B;						//前差RA0/W,RA1/B,RA3/Y
+    Motor_Back_Status =  PORTC & 0x07;						//後差RC0/W,RC1/B,RC2/Y
+    Motor_Temp =((Motor_Front_Status << 4)|( Motor_Back_Status));
+
+    //  if (Motor_Temp != Motor_OLD_Status)
+    //	{
+    //		Motor_OLD_Status = Motor_Temp; 
+    //	}	
+    //Motor_OLD_Status = Motor_Temp; 	
+    Motor1_W_out = 0;
+    Motor2_W_out = 0;
+    switch( Motor_Temp )
+    {
+        case Motor_2WD_Status :	
+            Gear_Status_OLD = _2WD;
+            Error_Mode = 0;
+            break;
+        case Motor_2WL_Status :
+            Gear_Status_OLD = _2WDLOCK;
+            Error_Mode = 0;
+            break;
+        case Motor_4WD_Status :	
+            Gear_Status_OLD = _4WD_1;
+            Error_Mode = 0;
+            break;	
+
+        case Motor_4WL_Status :	
+            Motor1_Y_out = 1;
+            for(i = 0 ; i < 200 ; i++);
+            for(i = 0 ; i < 200 ; i++);
+            Motor_Front_Status = PORTA & 0x0B;			//前差RA0/W,RA1/B,RA3/Y
+            if( Motor_Front_Status == 0x03)		//斷線狀態或UnKnow狀態
+            {	
+                Error_Mode = 1;
+                Motor_Remove = 1;
+            }
+            else	
+            {	//OLD_Motor_4WDLOCK_Gear = 1;		//4WL的狀態
+                Motor_Remove = 0;
+                Gear_Status_OLD = _4WDLOCK_1;
+                Error_Mode = 0;
+            }
+            Motor1_Y_out = 0;
+            break;
+
+        default:
+            Error_Mode = 1;
+            //Gear_Status_OLD = Motor_Temp;
+
+
+    }		
+
+
+
 
 }
-				
+
 
 /******************************************************************************
-*    Output_ECU
-******************************************************************************/
+ *    Output_ECU
+ ******************************************************************************/
 void Output_ECU(void)
 {	
-	
-	//if(	Error_Mode == 1|| Handback_Error == 1)
-	if(	Handback_Error == 1)
-	{
-		L1_Out = 1; L2_Out = 1; L3_Out = 1;
-	}	
-//	if(	Error_Mode == 0 && Handback_Error == 0)	
-//	{	switch(Moving_Status)
-//		{		
-//			case Motor_2WD_Status :		
-//					 LED1 = 0; LED2 = 1; LED3 = 1;						 
-//					 L1_Out = 1; L2_Out = 0; L3_Out = 0;				 	
-//					 break;
-//			case Motor_2WL_Status :					
-//					 LED1 = 0; LED2 = 1; LED3 = 0;					 
-//					 L1_Out = 1; L2_Out = 0; L3_Out = 1;	
-//					 break;
-//			case Motor_4WD_Status :				
-//					 LED1 = 1; LED2 = 1; LED3 = 0;					 
-//					 L1_Out = 0; L2_Out = 0; L3_Out = 1;
-//					 break;
-//			case Motor_4WL_Status :					
-//					 LED1 = 1; LED2 = 0; LED3 = 0;				 
-//					 L1_Out = 0; L2_Out = 1; L3_Out = 1;
-//					 break;	
-//		}
-//	if(	Error_Mode == 0 && Handback_Error == 0)	
-	//if(	Handback_Error == 0)	
-	else
-	{	
-		switch(Moving_Status)
-		{		
-			case Motor_2WD_Status :
-					 L1_Out = 1; L2_Out = 0; L3_Out = 0;	
-					 break;
-			case Motor_2WL_Status :
-					 L1_Out = 1; L2_Out = 0; L3_Out = 1;	
-					 break;
-			case Motor_4WD_Status :
-					 L1_Out = 0; L2_Out = 0; L3_Out = 1;
-					 break;
-			case Motor_4WL_Status :	
-					 L1_Out = 0; L2_Out = 1; L3_Out = 1;
-					 break;	
-		}
-	}
-	
-	
+
+    //if(	Error_Mode == 1|| Handback_Error == 1)
+    if(	Handback_Error == 1)
+    {
+        L1_Out = 1; L2_Out = 1; L3_Out = 1;
+    }	
+    //	if(	Error_Mode == 0 && Handback_Error == 0)	
+    //	{	switch(Moving_Status)
+    //		{		
+    //			case Motor_2WD_Status :		
+    //					 LED1 = 0; LED2 = 1; LED3 = 1;						 
+    //					 L1_Out = 1; L2_Out = 0; L3_Out = 0;				 	
+    //					 break;
+    //			case Motor_2WL_Status :					
+    //					 LED1 = 0; LED2 = 1; LED3 = 0;					 
+    //					 L1_Out = 1; L2_Out = 0; L3_Out = 1;	
+    //					 break;
+    //			case Motor_4WD_Status :				
+    //					 LED1 = 1; LED2 = 1; LED3 = 0;					 
+    //					 L1_Out = 0; L2_Out = 0; L3_Out = 1;
+    //					 break;
+    //			case Motor_4WL_Status :					
+    //					 LED1 = 1; LED2 = 0; LED3 = 0;				 
+    //					 L1_Out = 0; L2_Out = 1; L3_Out = 1;
+    //					 break;	
+    //		}
+    //	if(	Error_Mode == 0 && Handback_Error == 0)	
+    //if(	Handback_Error == 0)	
+    else
+    {	
+        switch(Moving_Status)
+        {		
+            case Motor_2WD_Status :
+                L1_Out = 1; L2_Out = 0; L3_Out = 0;	
+                break;
+            case Motor_2WL_Status :
+                L1_Out = 1; L2_Out = 0; L3_Out = 1;	
+                break;
+            case Motor_4WD_Status :
+                L1_Out = 0; L2_Out = 0; L3_Out = 1;
+                break;
+            case Motor_4WL_Status :	
+                L1_Out = 0; L2_Out = 1; L3_Out = 1;
+                break;	
+        }
+    }
 }
+
