@@ -1,7 +1,7 @@
 #include <pic.h>
 #include "main.h"
 
-#define NEWADCFUNC  1
+#define NEWADCFUNC  0
 unsigned char ADC_Val[4] = {0,0,0,0};
 unsigned char ADC_Cnt = 0,ADC_Temp = 0,i,j;
 unsigned int ADC_Data , FVR_Data = 0,Normal_Data = 0;

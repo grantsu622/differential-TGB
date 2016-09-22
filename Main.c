@@ -373,10 +373,18 @@ unsigned char	Special = 0,i,j,k;
 unsigned int  temp;
 unsigned char Moving_Status;
 
-////////////////////////////////////AutoRun Test///////////////////////////////////////
+////////////////////////////////////Fist boot to 2WD by Motor///////////////////////////////////////
+#define BOOT2WD 1   //設定開機是否強制到2WD 
+unsigned char IsFistBoot = 0;
+unsigned char	Gear_Status_FistBoot = 0;
+unsigned char IsFistMotoError = 0;
 
+////////////////////////////////////AutoRun Test///////////////////////////////////////
 #define AUTORUN 0
 unsigned char SpeedCunt = 0;
+#if (AUTORUN)
+void autorun_Hand_Status(void);
+#endif
 
 void Motor1_F(void);	//前差馬達正轉
 void Motor1_R(void);	//前差馬達反轉
@@ -535,39 +543,13 @@ void interrupt ISRs(void)
         LED3_Count ++;
         LED13_Count ++;
 
-#if(AUTORUN)
-        if (SpeedCunt == 23)
-        {
-            switch(Gear_Status_OLD)
-            {
-                case _4WDLOCK_1:
-                    Gear_Status_NEW = _4WD_1;
-                    SpeedCunt = 0;
-                    break;
-                case _4WD_1:
-                    Gear_Status_NEW = _2WD;
-                    SpeedCunt = 0;
-                    break;
-                case _2WD:
-                    Gear_Status_NEW = _2WDLOCK;
-                    SpeedCunt = 0;
-                    break;
-                case _2WDLOCK:
-                    Gear_Status_NEW = _4WDLOCK_1;
-                    SpeedCunt = 0;
-                    break;
-            }
-        }
-#endif //end of AUTORUN
     }
 
 }
 
 /******************************************************************************
- *   
  *
  *No_Feedback_EN START   不使用回授控制
- *
  *
  ******************************************************************************/	 	
 void main(void)
@@ -703,8 +685,22 @@ void main(void)
         //		while(1);
         Special = 1;
         //Pull = 1;
+#if(BOOT2WD)
+        IsFistBoot = 1;
+        IsFistMotoError = 1;
+        Gear_Status_FistBoot = Gear_Status_NEW;
+#endif //end of BOOT2WD
         Gear_Status_NEW = _2WD;
     }
+#if(BOOT2WD)
+    else if( Gear_Status_OLD != _2WD || Gear_Status_NEW != _2WD)
+    {
+        IsFistBoot = 1;
+        Gear_Status_FistBoot = Gear_Status_NEW;
+        Change_Func(_2WD,Motor_2WD_Status);
+
+    }
+#endif //end of BOOT2WD
 
 
     /******************************************************************************
@@ -724,8 +720,29 @@ void main(void)
         {	
 #if(!AUTORUN)
             Check_Hand_Status();
+#else
+            autorun_Hand_Status();
 #endif // end of !AUTORUN
             Check_Motor_Status();	
+
+#if(BOOT2WD)
+            if ((Gear_Status_FistBoot == Gear_Status_NEW) && (IsFistBoot == 1))
+            {
+                if(IsFistMotoError)
+                {
+                    Gear_Status_OLD = _2WD;
+                    Gear_Status_NEW = _2WD;
+                }
+                else
+                {
+                    Gear_Status_OLD = Gear_Status_NEW;
+                }
+            }
+            else
+            {
+                IsFistBoot = 0;
+            }
+#endif // end of BOOT2WD
         }
 
         ADC_Func();			
@@ -844,6 +861,34 @@ void main(void)
     }
 }	
 
+/******************************************************************************
+ *    Check_Hand_Status
+ ******************************************************************************/
+#if(AUTORUN)
+void autorun_Hand_Status(void)
+{
+        if (SpeedCunt == 23)
+        {
+            SpeedCunt = 0;
+
+            switch(Gear_Status_OLD)
+            {
+                case _4WDLOCK_1:
+                    Gear_Status_NEW = _4WD_1;
+                    break;
+                case _4WD_1:
+                    Gear_Status_NEW = _2WD;
+                    break;
+                case _2WD:
+                    Gear_Status_NEW = _2WDLOCK;
+                    break;
+                case _2WDLOCK:
+                    Gear_Status_NEW = _4WDLOCK_1;
+                    break;
+            }
+        }
+}
+#endif //end of AUTORUN
 
 /******************************************************************************
  *    Check_Hand_Status
