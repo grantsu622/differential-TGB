@@ -197,7 +197,7 @@ __CONFIG(WRT_ALL & PLLEN_OFF & STVREN_ON & LVP_OFF & BORV_HI);
 //#define	WBY_EN		 		0
 #define Front_Position_EN		0			//前差馬達定位功能
 #define Back_Position_EN		0			//後差馬達定位功能
-#define _2WD_Position_EN		0
+#define _2WD_Position_EN	    0	
 #define _4WDL_Position_EN		0
 #define LED_EN					1
 #define _4WD_Test_EN	 		0
@@ -378,6 +378,8 @@ unsigned char Moving_Status;
 unsigned char IsFistBoot = 0;
 unsigned char	Gear_Status_FistBoot = 0;
 unsigned char IsFistMotoError = 0;
+unsigned char Gear_Back_Status_FistBoot = 0;
+unsigned char Gear_Back_Status	= 0;
 
 ////////////////////////////////////AutoRun Test///////////////////////////////////////
 #define AUTORUN 0
@@ -385,6 +387,10 @@ unsigned char SpeedCunt = 0;
 #if (AUTORUN)
 void autorun_Hand_Status(void);
 #endif
+
+////////////////////////////////////觸發型把手///////////////////////////////////////
+#define PULSEHAND   1
+unsigned char   PulseHand_Status = 0; 
 
 void Motor1_F(void);	//前差馬達正轉
 void Motor1_R(void);	//前差馬達反轉
@@ -579,7 +585,11 @@ void main(void)
 #if(_4WD_Test_EN)
     TRISD = 0b00110111;
 #else
+#if (PULSEHAND) 
+    TRISD = 0b00100000;
+#else
     TRISD = 0b00110011;
+#endif
 #endif
 
 #if 0
@@ -654,6 +664,9 @@ void main(void)
     _4WDL_Position();
 #endif		
 
+#if (PULSEHAND)
+    Gear_Status_NEW = _2WD;
+#endif
 
     Check_Motor_Status();
     Check_Hand_Status();
@@ -689,6 +702,7 @@ void main(void)
         IsFistBoot = 1;
         IsFistMotoError = 1;
         Gear_Status_FistBoot = Gear_Status_NEW;
+        Gear_Back_Status_FistBoot = Gear_Back_Status;   //後差訊號專用
 #endif //end of BOOT2WD
         Gear_Status_NEW = _2WD;
     }
@@ -697,6 +711,7 @@ void main(void)
     {
         IsFistBoot = 1;
         Gear_Status_FistBoot = Gear_Status_NEW;
+        Gear_Back_Status_FistBoot = Gear_Back_Status;
         Change_Func(_2WD,Motor_2WD_Status);
 
     }
@@ -726,7 +741,9 @@ void main(void)
             Check_Motor_Status();	
 
 #if(BOOT2WD)
-            if ((Gear_Status_FistBoot == Gear_Status_NEW) && (IsFistBoot == 1))
+            //if ((Gear_Status_FistBoot == Gear_Status_NEW) && (IsFistBoot == 1)    //後差專用 
+            //        && (Gear_Back_Status_FistBoot == Gear_Back_Status))
+            if ((Gear_Status_FistBoot == Gear_Status_NEW) && (IsFistBoot == 1)) 
             {
                 if(IsFistMotoError)
                 {
@@ -812,6 +829,7 @@ void main(void)
                             break;		
                     }
                     Pull_5S_CNT = Pull_Count_Val;
+                    Pull = 0;
                 }
 
             }															   	
@@ -896,11 +914,54 @@ void autorun_Hand_Status(void)
 
 void Check_Hand_Status(void)
 { 
+#if (PULSEHAND) 
+    
+    if (!RD5)
+    {
+        Delay_128msec(1);
+    }
+    else
+        return;
+
+    if (!RD5)
+    {
+        PulseHand_Status++;
+        if (PulseHand_Status > 3)
+        {
+            PulseHand_Status = 0;
+        }
+        
+        switch (PulseHand_Status)
+        {
+            case 0:
+                Gear_Status_NEW = _2WD;
+                Handback_Error = 0;
+                break;
+            case 1:
+                Gear_Status_NEW = _2WDLOCK;
+                Handback_Error = 0;
+                break;
+            case 2:
+                Gear_Status_NEW = _4WD_1;
+                Handback_Error = 0;
+                break;
+            case 3:
+                Gear_Status_NEW = _4WDLOCK_1;
+                Handback_Error = 0;
+                break;
+            default:
+                Handback_Error = 1;
+        }
+    }
+    
+#else
     unsigned char Loop = 1, k = 3;
     do
     {	
         Delay_128msec(1);
         Gear_Status_NEW = PORTD & 0b00110011;
+
+        Gear_Back_Status = Gear_Status_NEW;
 
         if(Gear_Status_NEW == _4WDLOCK_2)
             Gear_Status_NEW = _4WDLOCK_1;
@@ -927,7 +988,7 @@ void Check_Hand_Status(void)
         }
     }
     while(Loop == 1);
-
+#endif
 }
 /******************************************************************************
  *    Check_Status
