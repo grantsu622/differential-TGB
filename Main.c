@@ -391,6 +391,7 @@ void autorun_Hand_Status(void);
 ////////////////////////////////////觸發型把手///////////////////////////////////////
 #define PULSEHAND   1
 unsigned char   PulseHand_Status = 0; 
+unsigned char   IsReturnHigh = 0; 
 
 void Motor1_F(void);	//前差馬達正轉
 void Motor1_R(void);	//前差馬達反轉
@@ -578,7 +579,8 @@ void main(void)
 
 
     TRISA = 0b00101011;
-    TRISB = 0b00100001;						//RB0 = RA2 input
+    //TRISB = 0b00100001;						//RB0 = RA2 input
+    TRISB = 0b00100000;     //for pluse hand test 20161011						
     //TRISC = 0b00011111;
     TRISC = 0b01001111;
 
@@ -880,7 +882,7 @@ void main(void)
 }	
 
 /******************************************************************************
- *    Check_Hand_Status
+ *   Auto Run Test 
  ******************************************************************************/
 #if(AUTORUN)
 void autorun_Hand_Status(void)
@@ -915,16 +917,49 @@ void autorun_Hand_Status(void)
 void Check_Hand_Status(void)
 { 
 #if (PULSEHAND) 
+    unsigned int i;
     
-    if (!RD5)
+    LATB0 = 1;
+    if (RD5) 
     {
-        Delay_128msec(1);
-    }
-    else
+        IsReturnHigh = 1;
+        LATB0 = 0;
         return;
+    }
 
+    if (!IsReturnHigh) 
+    {
+        LATB0 = 0;
+        return;
+    }
+#if 1 
+    for(i = 0; i< 1600; i++)     //delay: 800-> 140ms, 1600->278ms
+    {
+        if((i % 100) == 0)
+        {
+            if(RD5) 
+            {
+                LATB0 = 0;
+                return;
+            }
+            
+        }
+    }
+    LATB0 = 0;
+#else
+    Delay_128msec(1);
+    //LATB0 = 0;
+    if(RD5) 
+    {
+        LATB0 = 0;
+        return;
+    }
+    Delay_128msec(1);
+#endif //end of 1
+    //LATB0 = 1;
     if (!RD5)
     {
+        IsReturnHigh = 0;
         PulseHand_Status++;
         if (PulseHand_Status > 3)
         {
@@ -953,6 +988,7 @@ void Check_Hand_Status(void)
                 Handback_Error = 1;
         }
     }
+    //LATB0 = 0;
     
 #else
     unsigned char Loop = 1, k = 3;
