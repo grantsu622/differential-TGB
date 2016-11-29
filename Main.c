@@ -391,7 +391,11 @@ void autorun_Hand_Status(void);
 ////////////////////////////////////觸發型把手///////////////////////////////////////
 #define PULSEHAND   1
 unsigned char   PulseHand_Status = 0; 
+unsigned char   PulseHand_Status_2WD = 0; 
+unsigned char   PulseHand_Status_4WD = 0; 
 unsigned char   IsReturnHigh = 0; 
+unsigned char   IsReturnHigh_RD4 = 0; 
+unsigned char   IsReturnHigh_RD5 = 0; 
 
 void Motor1_F(void);	//前差馬達正轉
 void Motor1_R(void);	//前差馬達反轉
@@ -420,6 +424,12 @@ void _4WDL_Position(void);
 void Check_Status(void);
 void Error_Mode_Func(unsigned char Goto,unsigned char Status);
 void Check_Hand_Status(void);
+
+#if (PULSEHAND) 
+void Check_Hand_Status_RD5(void); // 2WD, 2WL
+void Check_Hand_Status_RD4(void); // 4WD, 4WL
+#endif //end of PULSEHAND
+
 void Check_Motor_Status(void);
 //void Check_First_Status(void);
 void Output_ECU(void);
@@ -588,7 +598,7 @@ void main(void)
     TRISD = 0b00110111;
 #else
 #if (PULSEHAND) 
-    TRISD = 0b00100000;
+    TRISD = 0b00110000;
 #else
     TRISD = 0b00110011;
 #endif
@@ -917,78 +927,8 @@ void autorun_Hand_Status(void)
 void Check_Hand_Status(void)
 { 
 #if (PULSEHAND) 
-    unsigned int i;
-    
-    LATB0 = 1;
-    if (RD5) 
-    {
-        IsReturnHigh = 1;
-        LATB0 = 0;
-        return;
-    }
-
-    if (!IsReturnHigh) 
-    {
-        LATB0 = 0;
-        return;
-    }
-#if 1 
-    for(i = 0; i< 1600; i++)     //delay: 800-> 140ms, 1600->278ms
-    {
-        if((i % 100) == 0)
-        {
-            if(RD5) 
-            {
-                LATB0 = 0;
-                return;
-            }
-            
-        }
-    }
-    LATB0 = 0;
-#else
-    Delay_128msec(1);
-    //LATB0 = 0;
-    if(RD5) 
-    {
-        LATB0 = 0;
-        return;
-    }
-    Delay_128msec(1);
-#endif //end of 1
-    //LATB0 = 1;
-    if (!RD5)
-    {
-        IsReturnHigh = 0;
-        PulseHand_Status++;
-        if (PulseHand_Status > 3)
-        {
-            PulseHand_Status = 0;
-        }
-        
-        switch (PulseHand_Status)
-        {
-            case 0:
-                Gear_Status_NEW = _2WD;
-                Handback_Error = 0;
-                break;
-            case 1:
-                Gear_Status_NEW = _2WDLOCK;
-                Handback_Error = 0;
-                break;
-            case 2:
-                Gear_Status_NEW = _4WD_1;
-                Handback_Error = 0;
-                break;
-            case 3:
-                Gear_Status_NEW = _4WDLOCK_1;
-                Handback_Error = 0;
-                break;
-            default:
-                Handback_Error = 1;
-        }
-    }
-    //LATB0 = 0;
+    Check_Hand_Status_RD5();
+    Check_Hand_Status_RD4();
     
 #else
     unsigned char Loop = 1, k = 3;
@@ -1026,6 +966,248 @@ void Check_Hand_Status(void)
     while(Loop == 1);
 #endif
 }
+
+#if (PULSEHAND) 
+/******************************************************************************
+ *    Check_Hand_Status_RD5
+ *    function: Increase Gear 
+ ******************************************************************************/
+
+void Check_Hand_Status_RD5(void)
+{ 
+
+    unsigned int i;
+    
+    //LATB0 = 1;
+    if (RD5 ) 
+    {
+        IsReturnHigh_RD5 = 1;
+        //LATB0 = 0;
+        return;
+    }
+
+    if (!IsReturnHigh_RD5) 
+    {
+        //LATB0 = 0;
+        return;
+    }
+#if 1 
+    for(i = 0; i< 1600; i++)     //delay: 800-> 140ms, 1600->278ms
+    {
+        if((i % 100) == 0)
+        {
+            if(RD5 || !RD4) 
+            {
+                //LATB0 = 0;
+                return;
+            }
+            
+        }
+    }
+    //LATB0 = 0;
+#else
+    Delay_128msec(1);
+    //LATB0 = 0;
+    if(RD5) 
+    {
+        LATB0 = 0;
+        return;
+    }
+    Delay_128msec(1);
+#endif //end of 1
+
+#if 1
+
+    if (!RD5 && RD4)
+    {
+        IsReturnHigh_RD5 = 0;
+
+        PulseHand_Status++;
+        if (PulseHand_Status > 3)
+        {
+            PulseHand_Status = 0;
+        }
+        
+        switch (PulseHand_Status)
+        {
+            case 0:
+                Gear_Status_NEW = _2WD;
+                Handback_Error = 0;
+                break;
+            case 1:
+                Gear_Status_NEW = _2WDLOCK;
+                Handback_Error = 0;
+                break;
+            case 2:
+                Gear_Status_NEW = _4WD_1;
+                Handback_Error = 0;
+                break;
+            case 3:
+                Gear_Status_NEW = _4WDLOCK_1;
+                Handback_Error = 0;
+                break;
+            default:
+                Handback_Error = 1;
+        }
+
+    }
+
+#else
+    /* One Pulse switch*/
+    unsigned int i;
+    
+    //LATB0 = 1;
+    if (RD5 ) 
+    {
+        IsReturnHigh = 1;
+        //LATB0 = 0;
+        return;
+    }
+
+    if (!IsReturnHigh) 
+    {
+        //LATB0 = 0;
+        return;
+    }
+#if 1 
+    for(i = 0; i< 1600; i++)     //delay: 800-> 140ms, 1600->278ms
+    {
+        if((i % 100) == 0)
+        {
+            if(RD5 ) 
+            {
+                //LATB0 = 0;
+                return;
+            }
+            
+        }
+    }
+    //LATB0 = 0;
+#else
+    Delay_128msec(1);
+    //LATB0 = 0;
+    if(RD5) 
+    {
+        LATB0 = 0;
+        return;
+    }
+    Delay_128msec(1);
+#endif //end of 1
+
+    if (!RD5)
+    {
+        IsReturnHigh = 0;
+        PulseHand_Status++;
+        if (PulseHand_Status > 3)
+        {
+            PulseHand_Status = 0;
+        }
+        
+        switch (PulseHand_Status)
+        {
+            case 0:
+                Gear_Status_NEW = _2WD;
+                Handback_Error = 0;
+                break;
+            case 1:
+                Gear_Status_NEW = _2WDLOCK;
+                Handback_Error = 0;
+                break;
+            case 2:
+                Gear_Status_NEW = _4WD_1;
+                Handback_Error = 0;
+                break;
+            case 3:
+                Gear_Status_NEW = _4WDLOCK_1;
+                Handback_Error = 0;
+                break;
+            default:
+                Handback_Error = 1;
+        }
+    }
+#endif
+    //LATB0 = 0;
+}
+
+
+/******************************************************************************
+ *    Check_Hand_Status_RD4
+ *    function: Decrease
+ ******************************************************************************/
+
+void Check_Hand_Status_RD4(void)
+{ 
+
+    unsigned int i;
+    
+    //LATB0 = 1;
+    if (RD4 ) 
+    {
+        IsReturnHigh_RD4 = 1;
+        //LATB0 = 0;
+        return;
+    }
+
+    if (!IsReturnHigh_RD4) 
+    {
+        //LATB0 = 0;
+        return;
+    }
+
+    for(i = 0; i< 1600; i++)     //delay: 800-> 140ms, 1600->278ms
+    {
+        if((i % 100) == 0)
+        {
+            if(RD4 || !RD5) 
+            {
+                //LATB0 = 0;
+                return;
+            }
+            
+        }
+    }
+    //LATB0 = 0;
+
+    if (!RD4 && RD5)
+    {
+        IsReturnHigh_RD4 = 0;
+
+        if (PulseHand_Status == 0)
+        {
+            PulseHand_Status = 3;
+        }
+        else
+        {
+
+            PulseHand_Status--;
+        }
+        
+        switch (PulseHand_Status)
+        {
+            case 0:
+                Gear_Status_NEW = _2WD;
+                Handback_Error = 0;
+                break;
+            case 1:
+                Gear_Status_NEW = _2WDLOCK;
+                Handback_Error = 0;
+                break;
+            case 2:
+                Gear_Status_NEW = _4WD_1;
+                Handback_Error = 0;
+                break;
+            case 3:
+                Gear_Status_NEW = _4WDLOCK_1;
+                Handback_Error = 0;
+                break;
+            default:
+                Handback_Error = 1;
+        }
+
+    }
+}
+#endif // end of PLUSEHAND
+
 /******************************************************************************
  *    Check_Status
  ******************************************************************************/
