@@ -177,6 +177,19 @@
 //
 //******************************************************************************/
 
+/*        定義值設定表
+ *              | PULSEHAND    | BOOT2WD    | AUTORUN   | FRONT_TEST
+ * -------------------------------------------------------------
+ * 前後差       |       0       |    0      |    0      |       0
+ * -------------------------------------------------------------
+ * 前後差(觸發) |       1       |    1      |    0      |       0 (雙開關)
+ * -------------------------------------------------------------
+ * 前差機種     |       0       |    0      |    0      |       1
+ * -------------------------------------------------------------
+ * 自動         |       0       |    0      |    1      |       0
+ */
+
+
 #include <pic.h>
 #include <xc.h>
 #include "I2C.h"
@@ -191,6 +204,13 @@ __CONFIG(WRT_ALL & PLLEN_OFF & STVREN_ON & LVP_OFF & BORV_HI);
 //================================================================================================
 
 //__EEPROM_DATA(0xAB, 0x20, 0x15, 0x03, 0x24, 0x01, 0xFF, 0xFF);
+
+//==========================定義===================================================================
+#define PULSEHAND   1   //觸發型雙開關把手
+#define BOOT2WD 1   //設定開機是否強制到2WD 
+#define AUTORUN 0   //自動執行
+#define FRONT_TEST   0  //前差機種
+//================================================================================================
 
 #define	Comeback_2WD_EN			0
 #define	Self_Test_EN			0
@@ -237,6 +257,14 @@ unsigned char Pull_5S_CNT = Pull_Count_Val;
 #define _4WDLOCK_2				0b00110010								
 #define _4WD_Test				0b00010110									
 #define _4WD_Test_1				0b00110110									
+
+#elif (FRONT_TEST)
+#define _4WDLOCK_1				0b00010010
+#define _4WDLOCK_2				0b00110010								
+#define _4WD_1					0b00010001
+#define _4WD_2					0b00110001
+#define _2WDLOCK				0b00100011
+#define _2WD					0b00000011
 
 #else
 #define _4WDLOCK_1				0b00010010
@@ -321,10 +349,18 @@ unsigned char	Motor_Temp	      	= 0;
 
 //以下定義值後4bit為前差馬達狀態，前4bit為後差馬達狀態
 //Motor_Status_Now 為前後馬達合成後的狀態
+#if(FRONT_TEST)
+#define	Motor_2WD_Status	 		0b00001000			//0x08
+#define	Motor_2WL_Status	 		0b11111111			//0x00
+#define	Motor_4WD_Status	 		0b00000010			//0x02
+#define	Motor_4WL_Status	 		0b00001010			//0x0A
+
+#else
 #define	Motor_2WD_Status	 		0b10000010			//0x82
 #define	Motor_2WL_Status	 		0b10000100			//0x84
 #define	Motor_4WD_Status	 		0b00100100			//0x24
 #define	Motor_4WL_Status	 		0b10100100			//0xA4
+#endif
 
 ////////////////////////////////////把手///////////////////////////////////////
 
@@ -374,7 +410,6 @@ unsigned int  temp;
 unsigned char Moving_Status;
 
 ////////////////////////////////////Fist boot to 2WD by Motor///////////////////////////////////////
-#define BOOT2WD 1   //設定開機是否強制到2WD 
 unsigned char IsFistBoot = 0;
 unsigned char	Gear_Status_FistBoot = 0;
 unsigned char IsFistMotoError = 0;
@@ -382,20 +417,20 @@ unsigned char Gear_Back_Status_FistBoot = 0;
 unsigned char Gear_Back_Status	= 0;
 
 ////////////////////////////////////AutoRun Test///////////////////////////////////////
-#define AUTORUN 0
 unsigned char SpeedCunt = 0;
 #if (AUTORUN)
 void autorun_Hand_Status(void);
 #endif
 
 ////////////////////////////////////觸發型把手///////////////////////////////////////
-#define PULSEHAND   1
 unsigned char   PulseHand_Status = 0; 
 unsigned char   PulseHand_Status_2WD = 0; 
 unsigned char   PulseHand_Status_4WD = 0; 
 unsigned char   IsReturnHigh = 0; 
 unsigned char   IsReturnHigh_RD4 = 0; 
-unsigned char   IsReturnHigh_RD5 = 0; 
+unsigned char   IsReturnHigh_RD1 = 0; 
+
+////////////////////////////////////前差機種///////////////////////////////////////
 
 void Motor1_F(void);	//前差馬達正轉
 void Motor1_R(void);	//前差馬達反轉
@@ -426,8 +461,8 @@ void Error_Mode_Func(unsigned char Goto,unsigned char Status);
 void Check_Hand_Status(void);
 
 #if (PULSEHAND) 
-void Check_Hand_Status_RD5(void); // 2WD, 2WL
-void Check_Hand_Status_RD4(void); // 4WD, 4WL
+void Check_Hand_Status_RD1(void); // 2WD-> 2WL -> 4WD -> 4WL
+void Check_Hand_Status_RD4(void); // 4WL -> 4WD -> 2WL -> 2WD
 #endif //end of PULSEHAND
 
 void Check_Motor_Status(void);
@@ -596,12 +631,12 @@ void main(void)
 
 #if(_4WD_Test_EN)
     TRISD = 0b00110111;
-#else
-#if (PULSEHAND) 
-    TRISD = 0b00110000;
+#elif (PULSEHAND) 
+    TRISD = 0b00010010;
+#elif (FRONT_TEST)
+    TRISD = 0b00010011;
 #else
     TRISD = 0b00110011;
-#endif
 #endif
 
 #if 0
@@ -697,7 +732,11 @@ void main(void)
             Handback_Error = 0;
             break;
         case _2WD:
+#if(!FRONT_TEST)
             L1_Out = 1; L2_Out = 0; L3_Out = 0;
+#else
+            L1_Out = 1; L2_Out = 0; L3_Out = 1;	
+#endif
             Handback_Error = 0;
             break;
         default:
@@ -868,7 +907,11 @@ void main(void)
                         break;
 
                     case _2WD:
+#if(!FRONT_TEST)
                         L1_Out = 1; L2_Out = 0; L3_Out = 0;	
+#else
+                        L1_Out = 1; L2_Out = 0; L3_Out = 1;			
+#endif
                         Change_Func(_2WD,Motor_2WD_Status);
                         break;
 
@@ -897,7 +940,7 @@ void main(void)
 #if(AUTORUN)
 void autorun_Hand_Status(void)
 {
-        if (SpeedCunt == 23)
+        if (SpeedCunt == 128)
         {
             SpeedCunt = 0;
 
@@ -927,7 +970,7 @@ void autorun_Hand_Status(void)
 void Check_Hand_Status(void)
 { 
 #if (PULSEHAND) 
-    Check_Hand_Status_RD5();
+    Check_Hand_Status_RD1();
     Check_Hand_Status_RD4();
     
 #else
@@ -969,34 +1012,34 @@ void Check_Hand_Status(void)
 
 #if (PULSEHAND) 
 /******************************************************************************
- *    Check_Hand_Status_RD5
+ *    Check_Hand_Status_RD1
  *    function: Increase Gear 
  ******************************************************************************/
 
-void Check_Hand_Status_RD5(void)
+void Check_Hand_Status_RD1(void)
 { 
 
     unsigned int i;
     
     //LATB0 = 1;
-    if (RD5 ) 
+    if (RD1 ) 
     {
-        IsReturnHigh_RD5 = 1;
+        IsReturnHigh_RD1 = 1;
         //LATB0 = 0;
         return;
     }
 
-    if (!IsReturnHigh_RD5) 
+    if (!IsReturnHigh_RD1) 
     {
         //LATB0 = 0;
         return;
     }
 #if 1 
-    for(i = 0; i< 1600; i++)     //delay: 800-> 140ms, 1600->278ms
+    for(i = 0; i< 800; i++)     //delay: 800-> 140ms, 1600->278ms
     {
         if((i % 100) == 0)
         {
-            if(RD5 || !RD4) 
+            if(RD1 || !RD4) 
             {
                 //LATB0 = 0;
                 return;
@@ -1018,9 +1061,9 @@ void Check_Hand_Status_RD5(void)
 
 #if 1
 
-    if (!RD5 && RD4)
+    if (!RD1 && RD4)
     {
-        IsReturnHigh_RD5 = 0;
+        IsReturnHigh_RD1 = 0;
 
         PulseHand_Status++;
         if (PulseHand_Status > 3)
@@ -1154,11 +1197,11 @@ void Check_Hand_Status_RD4(void)
         return;
     }
 
-    for(i = 0; i< 1600; i++)     //delay: 800-> 140ms, 1600->278ms
+    for(i = 0; i< 800; i++)     //delay: 800-> 140ms, 1600->278ms
     {
         if((i % 100) == 0)
         {
-            if(RD4 || !RD5) 
+            if(RD4 || !RD1) 
             {
                 //LATB0 = 0;
                 return;
@@ -1168,7 +1211,7 @@ void Check_Hand_Status_RD4(void)
     }
     //LATB0 = 0;
 
-    if (!RD4 && RD5)
+    if (!RD4 && RD1)
     {
         IsReturnHigh_RD4 = 0;
 
@@ -1313,6 +1356,7 @@ void Change_Func(unsigned char Goto,unsigned char Status)
 
             /////////////////////////4WL後差馬達/////////////////////////////////////////////////////////////
             /////////////////////////4WL後差馬達/////////////////////////////////////////////////////////////						
+#if(!FRONT_TEST)
             Motor2_W_out = 1;
             Work_status = 1;
             _5S_CNT = _5S_Val;
@@ -1331,6 +1375,7 @@ void Change_Func(unsigned char Goto,unsigned char Status)
             //						 }
             Back_Error = 0 ;
             Error_Exit_Func();
+#endif
             break;
         case _4WD_1:
             /////////////////////////4WD前差馬達/////////////////////////////////////////////////////////////						
@@ -1377,6 +1422,7 @@ void Change_Func(unsigned char Goto,unsigned char Status)
 
             /////////////////////////4WD後差馬達/////////////////////////////////////////////////////////////								
             /////////////////////////4WD後差馬達/////////////////////////////////////////////////////////////							
+#if(!FRONT_TEST)
             Work_status = 1;
             Motor2_W_out = 1;
             _5S_CNT = _5S_Val;
@@ -1395,7 +1441,7 @@ void Change_Func(unsigned char Goto,unsigned char Status)
             //							}
             Back_Error = 0 ;
             Error_Exit_Func();
-
+#endif
 
             break;
 
@@ -1420,6 +1466,7 @@ void Change_Func(unsigned char Goto,unsigned char Status)
 
             /////////////////////////2WL後差馬達/////////////////////////////////////////////////////////////
             /////////////////////////2WL後差馬達/////////////////////////////////////////////////////////////						
+#if(!FRONT_TEST)
             Motor2_W_out = 1;
             Work_status = 1;
             _5S_CNT = _5S_Val;
@@ -1436,7 +1483,7 @@ void Change_Func(unsigned char Goto,unsigned char Status)
             //							}
             Back_Error = 0 ;
             Error_Exit_Func();
-
+#endif
             break;
         case _2WD:
             /////////////////////////////////////2WD前差馬達/////////////////////////////////////////////////////////////	
@@ -1457,6 +1504,7 @@ void Change_Func(unsigned char Goto,unsigned char Status)
 
             /////////////////////////////////////2WD後差馬達/////////////////////////////////////////////////////////////	
             /////////////////////////////////////2WD後差馬達/////////////////////////////////////////////////////////////					
+#if(!FRONT_TEST)
             Work_status = 1;
             Motor2_W_out = 1;
             _5S_CNT = _5S_Val;
@@ -1474,7 +1522,7 @@ void Change_Func(unsigned char Goto,unsigned char Status)
             }
             Back_Error = 0 ;
             Error_Exit_Func();
-
+#endif
             break;
     }
 }
@@ -1621,6 +1669,7 @@ void Error_Mode_Func(unsigned char Goto,unsigned char Status)
 
             /////////////////////////4WL後差馬達/////////////////////////////////////////////////////////////
             /////////////////////////4WL後差馬達/////////////////////////////////////////////////////////////						
+#if(!FRONT_TEST)
             Motor2_W_out = 1;
             Work_status = 1;
             _5S_CNT = _5S_Val;
@@ -1636,6 +1685,7 @@ void Error_Mode_Func(unsigned char Goto,unsigned char Status)
             }	                                  		
             Back_Error = 0 ;
             Error_Exit_Func();
+#endif
             break;
         case _4WD_1:
             /////////////////////////4WD前差馬達/////////////////////////////////////////////////////////////						
@@ -1679,6 +1729,7 @@ void Error_Mode_Func(unsigned char Goto,unsigned char Status)
 
             /////////////////////////4WD後差馬達/////////////////////////////////////////////////////////////								
             /////////////////////////4WD後差馬達/////////////////////////////////////////////////////////////							
+#if(!FRONT_TEST)
             Work_status = 1;
             Motor2_W_out = 1;
             _5S_CNT = _5S_Val;
@@ -1694,7 +1745,7 @@ void Error_Mode_Func(unsigned char Goto,unsigned char Status)
             }	                                  		
             Back_Error = 0 ;
             Error_Exit_Func();
-
+#endif
 
             break;
 
@@ -1719,6 +1770,7 @@ void Error_Mode_Func(unsigned char Goto,unsigned char Status)
 
             /////////////////////////2WL後差馬達/////////////////////////////////////////////////////////////
             /////////////////////////2WL後差馬達/////////////////////////////////////////////////////////////						
+#if(!FRONT_TEST)
             Motor2_W_out = 1;
             Work_status = 1;
             _5S_CNT = _5S_Val;
@@ -1733,7 +1785,7 @@ void Error_Mode_Func(unsigned char Goto,unsigned char Status)
             } 
             Back_Error = 0 ;
             Error_Exit_Func();
-
+#endif
             break;
         case _2WD:
             /////////////////////////////////////2WD前差馬達/////////////////////////////////////////////////////////////	
@@ -1754,6 +1806,7 @@ void Error_Mode_Func(unsigned char Goto,unsigned char Status)
 
             /////////////////////////////////////2WD後差馬達/////////////////////////////////////////////////////////////	
             /////////////////////////////////////2WD後差馬達/////////////////////////////////////////////////////////////					
+#if(!FRONT_TEST)
             Work_status = 1;
             Motor2_W_out = 1;
             _5S_CNT = _5S_Val;
@@ -1771,7 +1824,7 @@ void Error_Mode_Func(unsigned char Goto,unsigned char Status)
             }
             Back_Error = 0 ;
             Error_Exit_Func();
-
+#endif
             break;
     }
 }
@@ -2046,7 +2099,13 @@ void Check_Motor_Status(void)
     for(i = 0 ; i < 200 ; i++);
     Motor_Front_Status = PORTA & 0x0B;						//前差RA0/W,RA1/B,RA3/Y
     Motor_Back_Status =  PORTC & 0x07;						//後差RC0/W,RC1/B,RC2/Y
+
+#if(FRONT_TEST)
+    Motor_Temp =Motor_Front_Status ;
+
+#else
     Motor_Temp =((Motor_Front_Status << 4)|( Motor_Back_Status));
+#endif
 
     //  if (Motor_Temp != Motor_OLD_Status)
     //	{
@@ -2140,7 +2199,11 @@ void Output_ECU(void)
         switch(Moving_Status)
         {		
             case Motor_2WD_Status :
-                L1_Out = 1; L2_Out = 0; L3_Out = 0;	
+#if(!FRONT_TEST)
+            L1_Out = 1; L2_Out = 0; L3_Out = 0;
+#else
+            L1_Out = 1; L2_Out = 0; L3_Out = 1;	
+#endif
                 break;
             case Motor_2WL_Status :
                 L1_Out = 1; L2_Out = 0; L3_Out = 1;	
