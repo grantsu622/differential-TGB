@@ -174,6 +174,9 @@
 // 1/(1600rpm/60)* 1MHZ = 37500
 // 						= 0x927C
 //
+// 1/(2200rpm/60)* 1MHZ = 27272
+// 						= 0x6A88
+// 			2400rpm -> 25000 = 0x61A8
 //
 //******************************************************************************/
 
@@ -231,7 +234,13 @@ __CONFIG(WRT_ALL & PLLEN_OFF & STVREN_ON & LVP_OFF & BORV_HI);
 #define _5S_Val					8 //origin
 //#define _3S_Val				24			//3秒
 //#define PAC1710_Error_val		10
+#if (FRONT_TEST)
+#define	RPM_Speed				0x6A88		//rpm 2200
+
+#else
 #define	RPM_Speed				0x927C		//rpm 1600
+
+#endif // end of FRONT_TEST
 
 
 ////////////////////////////////// 錯誤模式下拉纜繩參數//////////////////////////////////////
