@@ -1,4 +1,4 @@
-.Main.c.swp
-.ADC.c.swp
+*.swp
 TGB_Motor_Ver2.X/build/
 TGB_Motor_Ver2.X/dist/
+#TGB_Motor_Ver2.X/nbproject/
