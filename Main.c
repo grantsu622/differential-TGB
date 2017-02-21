@@ -206,11 +206,12 @@ __CONFIG(WRT_ALL & PLLEN_OFF & STVREN_ON & LVP_OFF & BORV_HI);
 //  EEPROM data  [NOP]  [年]  [年]  [月]  [日] [版次] [NOP]  [NOP]
 //================================================================================================
 
-__EEPROM_DATA(0xAB, 0x20, 0x17, 0x02, 0x06, 0x01, 0xFF, 0xFF);
+//__EEPROM_DATA(0xAB, 0x20, 0x17, 0x02, 0x07, 0x01, 0xFF, 0xFF);
+//__EEPROM_DATA (0,1,2,3,4,5,6,7);
 
 //==========================定義===================================================================
 #define PULSEHAND   1   //觸發型雙開關把手
-#define BOOT2WD 0   //設定開機是否強制到2WD 
+#define BOOT2WD 1   //設定開機是否強制到2WD 
 #define AUTORUN 0   //自動執行
 #define FRONT_TEST   0  //前差機種
 //================================================================================================
@@ -427,6 +428,10 @@ unsigned char Gear_Back_Status	= 0;
 
 ////////////////////////////////////AutoRun Test///////////////////////////////////////
 unsigned char SpeedCunt = 0;
+///EEPROM///
+volatile unsigned char eeprom_rdata = 0;
+unsigned char eeprom_wdata = 0;
+
 #if (AUTORUN)
 void autorun_Hand_Status(void);
 #endif
@@ -437,7 +442,11 @@ unsigned char   PulseHand_Status_2WD = 0;
 unsigned char   PulseHand_Status_4WD = 0; 
 unsigned char   IsReturnHigh = 0; 
 unsigned char   IsReturnHigh_RD4 = 0; 
+unsigned char   IsLowCunt_RD4 = 0; 
 unsigned char   IsReturnHigh_RD1 = 0; 
+unsigned char   IsLowCunt_RD1 = 0; 
+unsigned char   Handback_Error_RD1 = 0;
+unsigned char   Handback_Error_RD4 = 0;
 
 ////////////////////////////////////前差機種///////////////////////////////////////
 
@@ -724,6 +733,21 @@ void main(void)
     Gear_Status_NEW = _2WD;
 #endif
 
+#if(AUTORUN)
+    eeprom_rdata = eeprom_read(0x02);
+    if (eeprom_rdata >= 11)
+    {
+        L1_Out = 0; 
+        L2_Out = 0;
+        L3_Out = 0;
+        while(1);
+    }
+    eeprom_rdata++;
+    eeprom_write(0x02, eeprom_rdata);
+
+#endif
+
+
     Check_Motor_Status();
     Check_Hand_Status();
     switch(Gear_Status_NEW)
@@ -949,7 +973,7 @@ void main(void)
 #if(AUTORUN)
 void autorun_Hand_Status(void)
 {
-        if (SpeedCunt == 128)
+        if (SpeedCunt == 24)
         {
             SpeedCunt = 0;
 
@@ -1034,14 +1058,26 @@ void Check_Hand_Status_RD1(void)
     if (RD1 ) 
     {
         IsReturnHigh_RD1 = 1;
+        IsLowCunt_RD1 = 0;
+        Handback_Error_RD1 = 0;
         //LATB0 = 0;
         return;
     }
 
     if (!IsReturnHigh_RD1) 
     {
-        //LATB0 = 0;
-        return;
+        IsLowCunt_RD1++ ; 
+        if (IsLowCunt_RD1 > 200)    //200 -> delay 2.2 sec.
+        {
+            IsLowCunt_RD1 = 201;
+            Handback_Error_RD1 = 1;
+            return;
+        }
+        else
+        {
+            //LATB0 = 0;
+            return;
+        }
     }
 #if 1 
     for(i = 0; i< 800; i++)     //delay: 800-> 140ms, 1600->278ms
@@ -1197,13 +1233,26 @@ void Check_Hand_Status_RD4(void)
     {
         IsReturnHigh_RD4 = 1;
         //LATB0 = 0;
+        IsLowCunt_RD4 = 0;
+        Handback_Error_RD4 = 0;
         return;
     }
 
     if (!IsReturnHigh_RD4) 
     {
         //LATB0 = 0;
-        return;
+        IsLowCunt_RD4++ ; 
+        if (IsLowCunt_RD4 > 200)
+        {
+            IsLowCunt_RD4 = 201;
+            Handback_Error_RD4 = 1;
+            return;
+        }
+        else
+        {
+            //LATB0 = 0;
+            return;
+        }
     }
 
     for(i = 0; i< 800; i++)     //delay: 800-> 140ms, 1600->278ms
@@ -2177,7 +2226,13 @@ void Output_ECU(void)
 {	
 
     //if(	Error_Mode == 1|| Handback_Error == 1)
+#if(PULSEHAND)
+    if(	Handback_Error == 1 || Handback_Error_RD1 == 1 || Handback_Error_RD4 == 1)
+
+#else
     if(	Handback_Error == 1)
+
+#endif
     {
         L1_Out = 1; L2_Out = 1; L3_Out = 1;
     }	
